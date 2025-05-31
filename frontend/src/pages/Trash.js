@@ -58,43 +58,43 @@ const Trash = () => {
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
     setSelectedItem(item);
-    console.log('=== Menu aberto para item do lixo ===', item);
+    console.log("=== Menu aberto para item do lixo ===", item);
   };
 
   const handleMenuClose = () => {
     setAnchorEl(null);
     setSelectedItem(null); // Agora pode resetar sempre
-    console.log('=== Menu do lixo fechado ===');
+    console.log("=== Menu do lixo fechado ===");
   };
 
   const handleRestore = () => {
-    console.log('=== handleRestore chamado ===', selectedItem);
+    console.log("=== handleRestore chamado ===", selectedItem);
     setItemToRestore(selectedItem); // GUARDAR O ITEM NUMA VARIÁVEL SEPARADA
-    
+
     // Executar restauração imediatamente (sem dialog de confirmação)
     if (selectedItem) {
-      console.log('Restaurando item:', selectedItem);
+      console.log("Restaurando item:", selectedItem);
       restoreFromTrash(selectedItem);
     }
-    
+
     handleMenuClose();
   };
 
   const handleDeletePermanently = () => {
-    console.log('=== handleDeletePermanently chamado ===', selectedItem);
+    console.log("=== handleDeletePermanently chamado ===", selectedItem);
     setItemToDelete(selectedItem); // GUARDAR O ITEM NUMA VARIÁVEL SEPARADA
     setDeleteDialog(true);
     handleMenuClose();
   };
 
   const confirmDeletePermanently = () => {
-    console.log('=== confirmDeletePermanently chamado ===', itemToDelete);
-    
+    console.log("=== confirmDeletePermanently chamado ===", itemToDelete);
+
     if (itemToDelete) {
-      console.log('Eliminando permanentemente:', itemToDelete);
+      console.log("Eliminando permanentemente:", itemToDelete);
       deletePermanently(itemToDelete);
     }
-    
+
     setDeleteDialog(false);
     setItemToDelete(null);
   };
@@ -113,7 +113,7 @@ const Trash = () => {
   };
 
   const getFileIcon = (mimetype, type) => {
-    if (type === 'folder') return "📁";
+    if (type === "folder") return "📁";
     if (mimetype?.startsWith("image/")) return "🖼️";
     if (mimetype?.startsWith("video/")) return "🎥";
     if (mimetype?.startsWith("audio/")) return "🎵";
@@ -219,8 +219,9 @@ const Trash = () => {
                       position: "absolute",
                       top: 8,
                       right: 8,
-                      bgcolor: "rgba(255, 255, 255, 0.8)",
+                      bgcolor: "rgba(255, 255, 255, 0.9)",
                       "&:hover": { bgcolor: "rgba(255, 255, 255, 0.9)" },
+                      color: "#1565c0", // AZUL BOLD
                     }}
                     onClick={(e) => handleMenuOpen(e, item)}
                   >
@@ -268,9 +269,9 @@ const Trash = () => {
 
                   {/* MOSTRAR TIPO DO ITEM */}
                   <Chip
-                    label={item.type === 'file' ? 'Ficheiro' : 'Pasta'}
+                    label={item.type === "file" ? "Ficheiro" : "Pasta"}
                     size="small"
-                    color={item.type === 'file' ? 'primary' : 'secondary'}
+                    color={item.type === "file" ? "primary" : "secondary"}
                     variant="outlined"
                     sx={{ mt: 1 }}
                   />
@@ -300,8 +301,8 @@ const Trash = () => {
       </Menu>
 
       {/* Dialog de Confirmação para Eliminar Permanentemente */}
-      <Dialog 
-        open={deleteDialog} 
+      <Dialog
+        open={deleteDialog}
         onClose={() => {
           setDeleteDialog(false);
           setItemToDelete(null);
@@ -322,10 +323,12 @@ const Trash = () => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => {
-            setDeleteDialog(false);
-            setItemToDelete(null);
-          }}>
+          <Button
+            onClick={() => {
+              setDeleteDialog(false);
+              setItemToDelete(null);
+            }}
+          >
             Cancelar
           </Button>
           <Button

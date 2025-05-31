@@ -251,8 +251,9 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
                     position: "absolute",
                     top: 8,
                     right: 8,
-                    bgcolor: "rgba(255, 255, 255, 0.8)",
+                    bgcolor: "rgba(255, 255, 255, 0.9)",
                     "&:hover": { bgcolor: "rgba(255, 255, 255, 0.9)" },
+                    color: "#1565c0", // AZUL BOLD
                   }}
                   onClick={(e) => handleMenuOpen(e, item)}
                 >
