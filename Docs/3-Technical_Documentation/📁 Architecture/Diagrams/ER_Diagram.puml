@@ -1,0 +1,29 @@
+
+#### **Diagrams/ER_Diagram.puml**
+```plantuml
+@startuml
+entity User {
+  * id : ObjectId
+  * name : String
+  * email : String
+  * password : String
+  * isAdmin : Boolean
+}
+entity File {
+  * id : ObjectId
+  * filename : String
+  * ownerId : ObjectId
+  * folderId : ObjectId
+  * size : Number
+  * mimetype : String
+}
+entity Folder {
+  * id : ObjectId
+  * name : String
+  * parentFolderId : ObjectId
+}
+
+User ||--o{ File : owns
+Folder ||--o{ File : contains
+Folder ||--o| Folder : parent
+@enduml
