@@ -9,6 +9,7 @@ const authRoutes = require('./src/routes/auth');
 const fileRoutes = require('./src/routes/files');
 const userRoutes = require('./src/routes/users');
 const folderRoutes = require('./src/routes/folders');
+const trashRoutes = require('./src/routes/trash'); // NOVA ROTA
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -22,8 +23,8 @@ app.use(cors({
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100 // máximo 100 requests por IP
+  windowMs: 15 * 60 * 1000,
+  max: 100
 });
 app.use(limiter);
 
@@ -31,16 +32,21 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Conectar à base de dados
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/kpcloud', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/kpcloud')
+  .then(() => {
+    console.log('Conectado ao MongoDB com sucesso');
+  })
+  .catch((error) => {
+    console.error('Erro ao conectar ao MongoDB:', error);
+    process.exit(1);
+  });
 
 // Rotas
 app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/folders', folderRoutes);
+app.use('/api/trash', trashRoutes); // NOVA ROTA
 
 // Servir ficheiros estáticos
 app.use('/uploads', express.static('uploads'));

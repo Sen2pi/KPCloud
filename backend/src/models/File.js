@@ -65,22 +65,52 @@ const fileSchema = new mongoose.Schema({
     type: Number,
     default: 1
   },
-  versions: [{
-    version: Number,
-    filename: String,
-    size: Number,
-    uploadedAt: Date,
-    uploadedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    }
-  }]
+  // SOFT DELETE FIELDS
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  deletedAt: {
+    type: Date,
+    default: null
+  },
+  deletedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  }
 }, {
   timestamps: true
 });
 
+// Middleware para excluir ficheiros eliminados das queries normais
+fileSchema.pre(/^find/, function(next) {
+  // Só aplicar se não for uma query específica para itens eliminados
+  if (!this.getOptions().includeDeleted) {
+    this.where({ isDeleted: { $ne: true } });
+  }
+  next();
+});
+
+// Método para soft delete
+fileSchema.methods.softDelete = function(userId) {
+  this.isDeleted = true;
+  this.deletedAt = new Date();
+  this.deletedBy = userId;
+  return this.save();
+};
+
+// Método para restaurar
+fileSchema.methods.restore = function() {
+  this.isDeleted = false;
+  this.deletedAt = null;
+  this.deletedBy = null;
+  return this.save();
+};
+
+// Índices
 fileSchema.index({ owner: 1, folder: 1 });
-fileSchema.index({ 'sharedWith.user': 1 });
-fileSchema.index({ publicLink: 1 });
+fileSchema.index({ isDeleted: 1, deletedAt: 1 });
 
 module.exports = mongoose.model('File', fileSchema);
