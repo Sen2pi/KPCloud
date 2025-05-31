@@ -1,0 +1,25 @@
+.node_modules
+.DS_Store
+.env 
+
+node_modules/
+dist/
+coverage/   
+.vscode/
+.idea/
+*.log
+*.env
+*.env.local
+
+
+
+
+# Ignore build artifacts
+# Ignore logs       
+# Ignore IDE configurations
+# Ignore environment files
+# Ignore temporary files
+# Ignore test coverage reports
+# Ignore temporary files
+# Ignore temporary files
+# Ignore temporary files
