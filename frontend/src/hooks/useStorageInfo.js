@@ -74,7 +74,7 @@ export const useStorageInfo = () => {
     getStorageInfo();
     
     // Atualizar a cada 60 segundos
-    const interval = setInterval(getStorageInfo, 60000);
+    const interval = setInterval(getStorageInfo, 600000);
     
     return () => clearInterval(interval);
   }, []);

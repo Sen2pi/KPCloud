@@ -3,148 +3,228 @@ import {
   Box,
   Toolbar,
   Typography,
-  Breadcrumbs,
-  Link,
-  IconButton,
-  Tooltip,
-  Fab,
-  SpeedDial,
-  SpeedDialAction,
-  SpeedDialIcon,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
-  ViewModule,
-  ViewList,
-  Add,
-  CloudUpload,
+  Upload,
   CreateNewFolder,
-  NavigateNext,
+  InsertDriveFile,
+  Folder,
 } from '@mui/icons-material';
 import { useFiles } from '../contexts/FileContext';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import EmptyState from '../components/common/EmptyState';
 import FileGrid from '../components/files/FileGrid';
-import FileUpload from '../components/files/FileUpload';
+import UploadDialog from '../components/files/UploadDialog';
 
 const Dashboard = () => {
-  const {
-    files,
-    folders,
-    currentFolder,
-    loading,
-    loadFiles,
-    createFolder,
-    viewMode,
-    dispatch,
-  } = useFiles();
-  
-  const [showUpload, setShowUpload] = useState(false);
-  const [breadcrumbs, setBreadcrumbs] = useState([]);
+  const { files, folders, loading, loadFiles, uploadFiles, createFolder } = useFiles();
+  const [uploadDialog, setUploadDialog] = useState(false);
+  const [folderDialog, setFolderDialog] = useState(false);
+  const [currentFolder, setCurrentFolder] = useState(null);
+  const [currentPath, setCurrentPath] = useState([]);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderColor, setNewFolderColor] = useState('#3498db');
+
+  const folderColors = [
+    { name: 'Azul', value: '#3498db' },
+    { name: 'Verde', value: '#2ecc71' },
+    { name: 'Roxo', value: '#9b59b6' },
+    { name: 'Laranja', value: '#e67e22' },
+    { name: 'Vermelho', value: '#e74c3c' },
+    { name: 'Amarelo', value: '#f1c40f' },
+  ];
 
   useEffect(() => {
+    console.log('Dashboard mounted, carregando ficheiros...');
     loadFiles(null);
   }, []);
 
-  const handleFolderClick = (folderId) => {
-    loadFiles(folderId);
-    // Aqui poderias implementar a lógica para construir breadcrumbs
+  const handleFolderClick = async (folderId) => {
+    console.log('Navegando para pasta:', folderId);
+    
+    // Obter informações da pasta
+    const folder = folders.find(f => f._id === folderId);
+    if (folder) {
+      console.log('Pasta encontrada:', folder);
+      // Adicionar pasta ao caminho
+      setCurrentPath([...currentPath, { id: folderId, name: folder.name }]);
+    }
+    
+    setCurrentFolder(folderId);
+    await loadFiles(folderId);
   };
 
-  const handleCreateFolder = async () => {
-    const name = prompt('Nome da nova pasta:');
-    if (name) {
-      await createFolder(name, currentFolder);
+  const handleNavigateToPath = (index) => {
+    console.log('Navegando para índice:', index);
+    
+    if (index === -1) {
+      // Voltar à raiz
+      console.log('Voltando à raiz');
+      setCurrentPath([]);
+      setCurrentFolder(null);
+      loadFiles(null);
+    } else {
+      // Navegar para nível específico
+      const newPath = currentPath.slice(0, index + 1);
+      const targetFolderId = newPath[newPath.length - 1].id;
+      
+      console.log('Navegando para caminho:', newPath);
+      console.log('ID da pasta de destino:', targetFolderId);
+      
+      setCurrentPath(newPath);
+      setCurrentFolder(targetFolderId);
+      loadFiles(targetFolderId);
     }
   };
 
-  const speedDialActions = [
-    {
-      icon: <CloudUpload />,
-      name: 'Enviar Ficheiros',
-      onClick: () => setShowUpload(true),
-    },
-    {
-      icon: <CreateNewFolder />,
-      name: 'Nova Pasta',
-      onClick: handleCreateFolder,
-    },
-  ];
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+
+    const result = await createFolder({
+      name: newFolderName.trim(),
+      color: newFolderColor,
+      parent: currentFolder
+    });
+
+    if (result.success) {
+      setFolderDialog(false);
+      setNewFolderName('');
+      setNewFolderColor('#3498db');
+      // Recarregar ficheiros da pasta atual
+      loadFiles(currentFolder);
+    }
+  };
+
+  const handleUploadComplete = () => {
+    setUploadDialog(false);
+    // Recarregar ficheiros da pasta atual
+    loadFiles(currentFolder);
+  };
 
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
       <Toolbar />
       
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography variant="h4" gutterBottom>
-            Os Meus Ficheiros
-          </Typography>
-          <Breadcrumbs separator={<NavigateNext fontSize="small" />}>
-            <Link
-              color="inherit"
-              href="#"
-              onClick={() => loadFiles(null)}
-              sx={{ cursor: 'pointer' }}
-            >
-              Raiz
-            </Link>
-            {breadcrumbs.map((crumb, index) => (
-              <Link
-                key={crumb.id}
-                color="inherit"
-                href="#"
-                onClick={() => loadFiles(crumb.id)}
-                sx={{ cursor: 'pointer' }}
-              >
-                {crumb.name}
-              </Link>
-            ))}
-          </Breadcrumbs>
-        </Box>
-
-        <Box>
-          <Tooltip title={viewMode === 'grid' ? 'Vista de Lista' : 'Vista de Grelha'}>
-            <IconButton
-              onClick={() => dispatch({
-                type: 'SET_VIEW_MODE',
-                payload: viewMode === 'grid' ? 'list' : 'grid'
-              })}
-            >
-              {viewMode === 'grid' ? <ViewList /> : <ViewModule />}
-            </IconButton>
-          </Tooltip>
+        <Typography variant="h4" gutterBottom>
+          Os Meus Ficheiros
+        </Typography>
+        
+        {/* Botões de Ação */}
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={<Upload />}
+            onClick={() => setUploadDialog(true)}
+          >
+            Upload
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<CreateNewFolder />}
+            onClick={() => setFolderDialog(true)}
+          >
+            Nova Pasta
+          </Button>
         </Box>
       </Box>
 
-      {showUpload && (
-        <FileUpload
-          folderId={currentFolder}
-          onClose={() => setShowUpload(false)}
-        />
-      )}
-
+      {/* Conteúdo Principal */}
       {loading ? (
-        <Typography>A carregar...</Typography>
+        <LoadingSpinner message="A carregar ficheiros..." />
+      ) : files.length === 0 && folders.length === 0 ? (
+        <EmptyState
+          icon={currentFolder ? Folder : InsertDriveFile}
+          title={currentFolder ? "Pasta vazia" : "Nenhum ficheiro"}
+          description={
+            currentFolder 
+              ? "Esta pasta não contém ficheiros. Começa por fazer upload de alguns ficheiros ou criar novas pastas."
+              : "Ainda não tens ficheiros. Começa por fazer upload de alguns ficheiros ou criar novas pastas."
+          }
+          showLogo={!currentFolder}
+        />
       ) : (
         <FileGrid
           files={files}
           folders={folders}
           onFolderClick={handleFolderClick}
+          currentPath={currentPath}
+          onNavigateToPath={handleNavigateToPath}
         />
       )}
 
-      <SpeedDial
-        ariaLabel="Ações rápidas"
-        sx={{ position: 'fixed', bottom: 16, right: 16 }}
-        icon={<SpeedDialIcon />}
-      >
-        {speedDialActions.map((action) => (
-          <SpeedDialAction
-            key={action.name}
-            icon={action.icon}
-            tooltipTitle={action.name}
-            onClick={action.onClick}
+      {/* Dialog de Upload */}
+      <UploadDialog
+        open={uploadDialog}
+        onClose={() => setUploadDialog(false)}
+        onUploadComplete={handleUploadComplete}
+        currentFolder={currentFolder}
+      />
+
+      {/* Dialog de Nova Pasta */}
+      <Dialog open={folderDialog} onClose={() => setFolderDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Criar Nova Pasta</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Nome da pasta"
+            fullWidth
+            variant="outlined"
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            sx={{ mb: 3 }}
           />
-        ))}
-      </SpeedDial>
+          
+          <FormControl fullWidth>
+            <InputLabel>Cor da pasta</InputLabel>
+            <Select
+              value={newFolderColor}
+              label="Cor da pasta"
+              onChange={(e) => setNewFolderColor(e.target.value)}
+            >
+              {folderColors.map((color) => (
+                <MenuItem key={color.value} value={color.value}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box
+                      sx={{
+                        width: 20,
+                        height: 20,
+                        bgcolor: color.value,
+                        borderRadius: 1,
+                      }}
+                    />
+                    {color.name}
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFolderDialog(false)}>
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleCreateFolder} 
+            variant="contained"
+            disabled={!newFolderName.trim()}
+          >
+            Criar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

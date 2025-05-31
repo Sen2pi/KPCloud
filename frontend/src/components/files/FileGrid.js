@@ -48,8 +48,7 @@ import {
   NavigateNext,
   ViewModule,
   ViewList,
-  Star,
-  StarBorder,
+  ArrowBack,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -57,7 +56,13 @@ import { useFiles } from "../../contexts/FileContext";
 import FavoriteButton from "../common/FavoriteButton";
 import ShareDialog from "./ShareDialog";
 
-const FileGrid = ({ files, folders, onFolderClick, currentPath = [], onNavigateToPath }) => {
+const FileGrid = ({ 
+  files, 
+  folders, 
+  onFolderClick, 
+  currentPath = [], 
+  onNavigateToPath 
+}) => {
   const { downloadFile, moveToTrash } = useFiles();
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -67,7 +72,12 @@ const FileGrid = ({ files, folders, onFolderClick, currentPath = [], onNavigateT
   const [folderToDelete, setFolderToDelete] = useState(null);
   const [shareDialog, setShareDialog] = useState(false);
   const [itemToShare, setItemToShare] = useState(null);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' ou 'list'
+  const [viewMode, setViewMode] = useState('grid');
+
+  console.log("=== FileGrid renderizado ===");
+  console.log("currentPath:", currentPath);
+  console.log("files:", files.length);
+  console.log("folders:", folders.length);
 
   const handleViewModeChange = (event, newViewMode) => {
     if (newViewMode !== null) {
@@ -166,6 +176,12 @@ const FileGrid = ({ files, folders, onFolderClick, currentPath = [], onNavigateT
     setItemToDelete(null);
   };
 
+  const goBack = () => {
+    if (currentPath.length > 0 && onNavigateToPath) {
+      onNavigateToPath(currentPath.length - 2);
+    }
+  };
+
   const getFileIcon = (mimetype) => {
     if (mimetype?.startsWith("image/")) return <Image />;
     if (mimetype?.startsWith("video/")) return <VideoFile />;
@@ -197,7 +213,7 @@ const FileGrid = ({ files, folders, onFolderClick, currentPath = [], onNavigateT
     }
   };
 
-  // Renderização de Grid (atual)
+  // Renderização de Grid
   const renderGridView = () => (
     <Grid container spacing={2}>
       {allItems.map((item) => (
@@ -332,7 +348,7 @@ const FileGrid = ({ files, folders, onFolderClick, currentPath = [], onNavigateT
     </Grid>
   );
 
-  // Renderização de Lista (nova)
+  // Renderização de Lista
   const renderListView = () => (
     <TableContainer component={Paper}>
       <Table>
@@ -446,42 +462,50 @@ const FileGrid = ({ files, folders, onFolderClick, currentPath = [], onNavigateT
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           {/* Breadcrumbs */}
-          <Breadcrumbs separator={<NavigateNext fontSize="small" />} sx={{ flexGrow: 1 }}>
-            <Link
-              component="button"
-              variant="body1"
-              onClick={() => onNavigateToPath && onNavigateToPath(-1)}
-              sx={{ 
-                display: 'flex', 
-                alignItems: 'center',
-                textDecoration: 'none',
-                color: currentPath.length === 0 ? 'primary.main' : 'text.primary',
-                fontWeight: currentPath.length === 0 ? 'bold' : 'normal'
-              }}
-            >
-              <Home sx={{ mr: 0.5, fontSize: 20 }} />
-              Os Meus Ficheiros
-            </Link>
+          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+            {currentPath.length > 0 && (
+              <IconButton onClick={goBack} sx={{ mr: 1 }}>
+                <ArrowBack />
+              </IconButton>
+            )}
             
-            {currentPath.map((pathItem, index) => (
+            <Breadcrumbs separator={<NavigateNext fontSize="small" />} sx={{ flexGrow: 1 }}>
               <Link
-                key={pathItem.id}
                 component="button"
                 variant="body1"
-                onClick={() => onNavigateToPath && onNavigateToPath(index)}
+                onClick={() => onNavigateToPath && onNavigateToPath(-1)}
                 sx={{ 
                   display: 'flex', 
                   alignItems: 'center',
                   textDecoration: 'none',
-                  color: index === currentPath.length - 1 ? 'primary.main' : 'text.primary',
-                  fontWeight: index === currentPath.length - 1 ? 'bold' : 'normal'
+                  color: currentPath.length === 0 ? 'primary.main' : 'text.primary',
+                  fontWeight: currentPath.length === 0 ? 'bold' : 'normal'
                 }}
               >
-                <Folder sx={{ mr: 0.5, fontSize: 20 }} />
-                {pathItem.name}
+                <Home sx={{ mr: 0.5, fontSize: 20 }} />
+                Os Meus Ficheiros
               </Link>
-            ))}
-          </Breadcrumbs>
+              
+              {currentPath.map((pathItem, index) => (
+                <Link
+                  key={pathItem.id}
+                  component="button"
+                  variant="body1"
+                  onClick={() => onNavigateToPath && onNavigateToPath(index)}
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    textDecoration: 'none',
+                    color: index === currentPath.length - 1 ? 'primary.main' : 'text.primary',
+                    fontWeight: index === currentPath.length - 1 ? 'bold' : 'normal'
+                  }}
+                >
+                  <Folder sx={{ mr: 0.5, fontSize: 20 }} />
+                  {pathItem.name}
+                </Link>
+              ))}
+            </Breadcrumbs>
+          </Box>
 
           {/* Toggle de Vista */}
           <ToggleButtonGroup
@@ -533,7 +557,7 @@ const FileGrid = ({ files, folders, onFolderClick, currentPath = [], onNavigateT
         </MenuItem>
       </Menu>
 
-      {/* Dialogs existentes */}
+      {/* Dialog de Confirmação para Ficheiros */}
       <Dialog
         open={deleteDialog}
         onClose={handleDialogClose}
@@ -559,6 +583,7 @@ const FileGrid = ({ files, folders, onFolderClick, currentPath = [], onNavigateT
         </DialogActions>
       </Dialog>
 
+      {/* Dialog de Confirmação para Pastas */}
       <Dialog
         open={folderDeleteDialog}
         onClose={() => {
@@ -602,6 +627,7 @@ const FileGrid = ({ files, folders, onFolderClick, currentPath = [], onNavigateT
         </DialogActions>
       </Dialog>
 
+      {/* Share Dialog */}
       <ShareDialog
         open={shareDialog}
         onClose={() => {
