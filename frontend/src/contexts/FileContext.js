@@ -198,24 +198,86 @@ export const FileProvider = ({ children }) => {
   };
 
   // CORRIGIR uploadFiles para retornar resultado
-  const uploadFiles = async (files, folderId = null) => {
-    try {
-      dispatch({ type: "SET_UPLOADING", payload: true });
+// Atualizar função uploadFiles no FileContext
+const uploadFiles = async (filesData, folderId = null, preserveStructure = false) => {
+  try {
+    dispatch({ type: "SET_UPLOADING", payload: true });
+    
+    console.log('=== UPLOAD FILES WITH STRUCTURE ===');
+    console.log('Files:', filesData.length);
+    console.log('Folder ID:', folderId);
+    console.log('Preserve Structure:', preserveStructure);
+    
+    let successCount = 0;
+    let errorCount = 0;
+    
+    // Se preserveStructure for true, criar estrutura de pastas primeiro
+    if (preserveStructure && filesData.some(f => f.path && f.path.includes('/'))) {
+      // Extrair e criar estrutura de pastas
+      const folderPaths = new Set();
       
-      console.log('=== UPLOAD FILES ===');
-      console.log('Files:', files.length);
-      console.log('Folder ID:', folderId);
+      filesData.forEach(fileObj => {
+        if (fileObj.path && fileObj.path.includes('/')) {
+          const pathParts = fileObj.path.split('/');
+          pathParts.pop(); // Remover nome do ficheiro
+          
+          // Criar todos os caminhos de pasta necessários
+          let currentPath = '';
+          pathParts.forEach(part => {
+            currentPath = currentPath ? `${currentPath}/${part}` : part;
+            folderPaths.add(currentPath);
+          });
+        }
+      });
       
-      let successCount = 0;
-      let errorCount = 0;
+      // Criar pastas na ordem correta (mais superficiais primeiro)
+      const sortedPaths = Array.from(folderPaths).sort((a, b) => 
+        a.split('/').length - b.split('/').length
+      );
       
-      for (const file of files) {
+      const folderMap = {}; // Mapear caminhos para IDs de pasta
+      
+      for (const folderPath of sortedPaths) {
+        const pathParts = folderPath.split('/');
+        const folderName = pathParts[pathParts.length - 1];
+        
+        // Determinar pasta pai
+        let parentId = folderId;
+        if (pathParts.length > 1) {
+          const parentPath = pathParts.slice(0, -1).join('/');
+          parentId = folderMap[parentPath];
+        }
+        
         try {
+          console.log(`Creating folder: ${folderName} in parent: ${parentId}`);
+          const result = await createFolder(folderName, '#3498db', parentId);
+          
+          if (result.success) {
+            folderMap[folderPath] = result.folder._id;
+          }
+        } catch (error) {
+          console.error(`Error creating folder ${folderPath}:`, error);
+        }
+      }
+      
+      // Agora fazer upload dos ficheiros para as pastas corretas
+      for (const fileObj of filesData) {
+        try {
+          let targetFolderId = folderId;
+          
+          // Determinar pasta de destino baseada no caminho
+          if (fileObj.path && fileObj.path.includes('/')) {
+            const pathParts = fileObj.path.split('/');
+            pathParts.pop(); // Remover nome do ficheiro
+            const folderPath = pathParts.join('/');
+            targetFolderId = folderMap[folderPath] || folderId;
+          }
+          
           const formData = new FormData();
-          formData.append("file", file);
-          if (folderId) formData.append("folderId", folderId);
+          formData.append("file", fileObj.file);
+          if (targetFolderId) formData.append("folderId", targetFolderId);
 
-          console.log('Uploading file:', file.name);
+          console.log(`Uploading file: ${fileObj.name} to folder: ${targetFolderId}`);
           
           const response = await fileAPI.upload(formData, (progressEvent) => {
             const progress = Math.round(
@@ -230,42 +292,72 @@ export const FileProvider = ({ children }) => {
             errorCount++;
           }
           
-          // Delay entre uploads para evitar rate limiting
           await new Promise(resolve => setTimeout(resolve, 200));
           
         } catch (fileError) {
-          console.error('Erro no upload do ficheiro:', file.name, fileError);
+          console.error('Erro no upload do ficheiro:', fileObj.name, fileError);
           errorCount++;
         }
       }
+    } else {
+      // Upload normal sem estrutura
+      for (const fileObj of filesData) {
+        try {
+          const formData = new FormData();
+          formData.append("file", fileObj.file || fileObj);
+          if (folderId) formData.append("folderId", folderId);
 
-      // Recarregar ficheiros apenas uma vez no final
-      await loadFiles(folderId);
-
-      if (successCount > 0) {
-        toast.success(`${successCount} ficheiro${successCount > 1 ? 's' : ''} enviado${successCount > 1 ? 's' : ''} com sucesso!`);
+          const response = await fileAPI.upload(formData, (progressEvent) => {
+            const progress = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            dispatch({ type: "SET_UPLOAD_PROGRESS", payload: progress });
+          });
+          
+          if (response.data.success) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+        } catch (fileError) {
+          console.error('Erro no upload do ficheiro:', fileObj.name || fileObj.file?.name, fileError);
+          errorCount++;
+        }
       }
-      
-      if (errorCount > 0) {
-        toast.error(`${errorCount} ficheiro${errorCount > 1 ? 's' : ''} falharam no upload`);
-      }
-
-      return { 
-        success: successCount > 0, 
-        successCount, 
-        errorCount,
-        message: `${successCount} ficheiros enviados com sucesso` 
-      };
-
-    } catch (error) {
-      console.error('Erro geral no upload:', error);
-      toast.error("Erro ao enviar ficheiros");
-      return { success: false, error: error.message };
-    } finally {
-      dispatch({ type: "SET_UPLOADING", payload: false });
-      dispatch({ type: "SET_UPLOAD_PROGRESS", payload: 0 });
     }
-  };
+
+    // Recarregar ficheiros
+    await loadFiles(folderId);
+
+    if (successCount > 0) {
+      const structureMsg = preserveStructure ? ' (estrutura de pastas preservada)' : '';
+      toast.success(`${successCount} ficheiro${successCount > 1 ? 's' : ''} enviado${successCount > 1 ? 's' : ''} com sucesso${structureMsg}!`);
+    }
+    
+    if (errorCount > 0) {
+      toast.error(`${errorCount} ficheiro${errorCount > 1 ? 's' : ''} falharam no upload`);
+    }
+
+    return { 
+      success: successCount > 0, 
+      successCount, 
+      errorCount,
+      message: `${successCount} ficheiros enviados com sucesso` 
+    };
+
+  } catch (error) {
+    console.error('Erro geral no upload:', error);
+    toast.error("Erro ao enviar ficheiros");
+    return { success: false, error: error.message };
+  } finally {
+    dispatch({ type: "SET_UPLOADING", payload: false });
+    dispatch({ type: "SET_UPLOAD_PROGRESS", payload: 0 });
+  }
+};
+
 
   const createFolder = async (name, color = '#3498db', parent = null) => {
     try {
