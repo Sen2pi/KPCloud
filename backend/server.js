@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 require('dotenv').config();
+
 const authRoutes = require('./src/routes/auth');
 const fileRoutes = require('./src/routes/files');
 const userRoutes = require('./src/routes/users');
@@ -13,6 +14,7 @@ const trashRoutes = require('./src/routes/trash');
 const systemRoutes = require('./src/routes/system');
 const forumRoutes = require('./src/routes/forum');
 const shareRoutes = require('./src/routes/share');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -36,12 +38,50 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100
+// CORRIGIR: Rate limiting mais permissivo durante desenvolvimento
+const generalLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuto
+  max: 200, // Aumentado para 200 requests por minuto
+  message: {
+    success: false,
+    message: 'Muitas requisições. Aguarda 1 minuto.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Permitir bypass para desenvolvimento
+  skip: (req) => {
+    return process.env.NODE_ENV === 'development' && req.ip === '::1';
+  }
 });
-app.use(limiter);
+
+// Rate limiting específico para uploads
+const uploadLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuto
+  max: 50, // Aumentado para 50 uploads por minuto
+  message: {
+    success: false,
+    message: 'Muitos uploads. Aguarda 1 minuto.'
+  }
+});
+
+// Rate limiting específico para APIs que são chamadas frequentemente
+const frequentApiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuto
+  max: 300, // Muito permissivo para APIs frequentes
+  message: {
+    success: false,
+    message: 'Muitas requisições para esta API.'
+  }
+});
+
+// Aplicar rate limiting geral
+app.use('/api', generalLimiter);
+
+// Rate limiting específico para rotas que precisam de mais permissões
+app.use('/api/files/upload', uploadLimiter);
+app.use('/api/folders', frequentApiLimiter);
+app.use('/api/files', frequentApiLimiter);
+app.use('/api/users/storage-stats', frequentApiLimiter);
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -82,7 +122,7 @@ app.use('/api/forum', forumRoutes);
 app.use('/api/share', shareRoutes);
 
 // Servir ficheiros estáticos
-app.use('/uploads/profiles', express.static(path.join(__dirname, 'uploads/profiles'))); // AGORA DEVE FUNCIONAR
+app.use('/uploads/profiles', express.static(path.join(__dirname, 'uploads/profiles')));
 
 // Socket.IO
 const server = require('http').createServer(app);
@@ -95,11 +135,11 @@ const io = require('socket.io')(server, {
 
 io.on('connection', (socket) => {
   console.log('Cliente conectado:', socket.id);
-  
+
   socket.on('join-folder', (folderId) => {
     socket.join(folderId);
   });
-  
+
   socket.on('disconnect', () => {
     console.log('Cliente desconectado:', socket.id);
   });

@@ -69,14 +69,101 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     // Lista básica de tipos permitidos (expande conforme necessário)
+    // Array completo para todas as categorias de estatísticas
     const allowedTypes = [
-      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
-      'application/pdf', 'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain', 'text/csv',
-      'application/zip', 'application/x-rar-compressed',
-      'video/mp4', 'video/avi', 'video/mov',
-      'audio/mp3', 'audio/wav', 'audio/ogg'
+      // ========== IMAGENS ==========
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 
+      'image/bmp', 'image/svg+xml', 'image/tiff', 'image/ico', 
+      'image/vnd.microsoft.icon', 'image/avif',
+
+      // ========== DOCUMENTOS ==========
+      // PDF
+      'application/pdf',
+      
+      // Microsoft Office
+      'application/msword', // .doc
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+      'application/vnd.ms-excel', // .xls
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-powerpoint', // .ppt
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+      
+      // Texto
+      'text/plain', 'text/csv', 'text/rtf',
+      
+      // OpenDocument
+      'application/vnd.oasis.opendocument.text', // .odt
+      'application/vnd.oasis.opendocument.spreadsheet', // .ods
+      'application/vnd.oasis.opendocument.presentation', // .odp
+      
+      // Outros documentos
+      'application/rtf', 'application/vnd.visio',
+
+      // ========== PROGRAMAÇÃO ==========
+      // JavaScript/TypeScript
+      'text/javascript', 'application/javascript',
+      
+      // Web
+      'text/html', 'text/css', 'application/xhtml+xml',
+      
+      // Dados
+      'application/json', 'application/ld+json',
+      'application/xml', 'text/xml',
+      
+      // Scripts
+      'application/x-sh', 'application/x-csh',
+      'application/x-httpd-php',
+      
+      // Outros formatos de programação (como text/plain para extensões específicas)
+      'text/x-python', 'text/x-java', 'text/x-c', 'text/x-c++',
+
+      // ========== COMPACTADOS ==========
+      'application/zip',
+      'application/x-rar-compressed', 'application/vnd.rar',
+      'application/x-7z-compressed',
+      'application/gzip', 'application/x-gzip',
+      'application/x-tar',
+      'application/x-bzip', 'application/x-bzip2',
+      'application/x-freearc',
+
+      // ========== VÍDEOS ==========
+      'video/mp4', 'video/mpeg', 'video/quicktime', // .mp4, .mpeg, .mov
+      'video/x-msvideo', // .avi
+      'video/webm', 'video/ogg',
+      'video/x-flv', // .flv
+      'video/x-matroska', // .mkv
+      'video/3gpp', 'video/3gpp2', // .3gp, .3g2
+      'video/mp2t', // .ts
+
+      // ========== ÁUDIO ==========
+      'audio/mpeg', 'audio/mp3', // .mp3
+      'audio/wav', 'audio/x-wav',
+      'audio/ogg', 'audio/opus',
+      'audio/aac', 'audio/x-aac',
+      'audio/webm',
+      'audio/midi', 'audio/x-midi',
+      'audio/3gpp', 'audio/3gpp2',
+
+      // ========== OUTROS TIPOS COMUNS ==========
+      // Fontes
+      'font/otf', 'font/ttf', 'font/woff', 'font/woff2',
+      'application/vnd.ms-fontobject',
+      
+      // E-books
+      'application/epub+zip', 'application/vnd.amazon.ebook',
+      
+      // Arquivos
+      'application/java-archive', // .jar
+      'application/vnd.apple.installer+xml', // .mpkg
+      
+      // Calendário
+      'text/calendar',
+      
+      // Binários genéricos
+      'application/octet-stream',
+      
+      // Flash
+      'application/x-shockwave-flash'
     ];
 
     if (allowedTypes.includes(file.mimetype)) {

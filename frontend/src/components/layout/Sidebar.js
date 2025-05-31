@@ -25,6 +25,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useStorageInfo } from '../../hooks/useStorageInfo';
 import { useFavorites } from '../../hooks/useFavorites';
+import { useFileStatistics } from '../../hooks/useFileStatistics';
 
 const drawerWidth = 240;
 
@@ -34,19 +35,25 @@ const Sidebar = () => {
   const { user } = useAuth();
   const storageInfo = useStorageInfo();
   const { favorites } = useFavorites();
+  const fileStatistics = useFileStatistics();
 
   const menuItems = [
     { text: 'Os Meus Ficheiros', icon: <InsertDriveFile />, path: '/dashboard' },
-      { text: 'Fórum', icon: <Group />, path: '/forum' }, 
+    { text: 'Fórum', icon: <Group />, path: '/forum' },
     { text: 'Partilhados Comigo', icon: <Share />, path: '/shared' },
-    { 
-      text: 'Favoritos', 
-      icon: <Star />, 
+    {
+      text: 'Favoritos',
+      icon: <Star />,
       path: '/favorites',
       badge: favorites.length > 0 ? favorites.length : null
     },
     { text: 'Lixo', icon: <Delete />, path: '/trash' },
   ];
+
+  // CORRIGIR: Garantir que percentage é sempre um número válido
+  const safePercentage = typeof storageInfo.percentage === 'number' && !isNaN(storageInfo.percentage) 
+    ? Math.min(Math.max(storageInfo.percentage, 0), 100) 
+    : 0;
 
   return (
     <Drawer
@@ -61,7 +68,9 @@ const Sidebar = () => {
       }}
     >
       <Toolbar />
-      <Box sx={{ overflow: 'auto', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      
+      <Box sx={{ overflow: 'auto', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {/* Menu Items */}
         <List>
           {menuItems.map((item) => (
             <ListItem key={item.text} disablePadding>
@@ -71,7 +80,7 @@ const Sidebar = () => {
               >
                 <ListItemIcon>
                   {item.badge ? (
-                    <Badge badgeContent={item.badge} color="warning" max={99}>
+                    <Badge badgeContent={item.badge} color="primary">
                       {item.icon}
                     </Badge>
                   ) : (
@@ -86,30 +95,69 @@ const Sidebar = () => {
 
         <Divider />
 
-        <Box sx={{ mt: 'auto', p: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <Storage sx={{ mr: 1, fontSize: 20 }} />
-            <Typography variant="body2" fontWeight="medium">
+        {/* Estatísticas de Tipos de Ficheiro */}
+        {fileStatistics.total > 0 && (
+          <>
+            <Box sx={{ p: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                Tipos de Ficheiro
+              </Typography>
+              
+              {/* Mostrar estatísticas simples */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                {fileStatistics.images > 0 && (
+                  <Typography variant="caption">
+                    🖼️ Imagens: {fileStatistics.images}
+                  </Typography>
+                )}
+                {fileStatistics.documents > 0 && (
+                  <Typography variant="caption">
+                    📄 Documentos: {fileStatistics.documents}
+                  </Typography>
+                )}
+                {fileStatistics.programming > 0 && (
+                  <Typography variant="caption">
+                    💻 Programação: {fileStatistics.programming}
+                  </Typography>
+                )}
+                {fileStatistics.compressed > 0 && (
+                  <Typography variant="caption">
+                    📦 Compactados: {fileStatistics.compressed}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+            <Divider />
+          </>
+        )}
+
+        {/* Informação de Armazenamento */}
+        <Box sx={{ p: 2, mt: 'auto' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <Storage />
+            <Typography variant="subtitle2">
               Armazenamento
             </Typography>
           </Box>
           
+          {/* CORRIGIR: Sempre garantir que value é um número válido */}
           <LinearProgress
             variant="determinate"
-            value={Math.min(storageInfo.getUsagePercentage(), 100)}
+            value={safePercentage}
             sx={{
               mb: 1,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: 'grey.200',
               '& .MuiLinearProgress-bar': {
-                backgroundColor: storageInfo.getUsagePercentage() > 80 ? 'error.main' : 'primary.main',
+                bgcolor: safePercentage > 80 ? 'error.main' : 'primary.main',
               },
             }}
           />
           
           <Typography variant="caption" color="text.secondary">
-            {storageInfo.formattedUsage} de {storageInfo.formattedQuota} utilizados
+            {storageInfo.formattedUsage || '0 MB'} de {storageInfo.formattedQuota || '1 GB'} utilizados
+          </Typography>
+          
+          <Typography variant="caption" color="text.secondary" display="block">
+            {safePercentage.toFixed(1)}% utilizado
           </Typography>
           
           {!storageInfo.supported && (

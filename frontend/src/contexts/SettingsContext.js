@@ -32,7 +32,7 @@ const initialSettings = {
   },
   upload: {
     autoUpload: true,
-    maxFileSize: 100 * 1024 * 1024,
+    maxFileSize: 100 * 1024 * 1024 * 1024 , // 10 TB
     allowedTypes: ['image/*', 'video/*', 'audio/*', 'application/*', 'text/*'],
     compressionEnabled: true
   },

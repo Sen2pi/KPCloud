@@ -40,12 +40,41 @@ api.interceptors.request.use((config) => {
 
   return config;
 });
+const retryRequest = async (config, retries = 3, delay = 1000) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await api(config);
+    } catch (error) {
+      if (error.response?.status === 429 && i < retries - 1) {
+        console.log(`Requisição limitada, tentando novamente em ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+      } else {
+        throw error;
+      }
+    }
+  }
+};
 
 // Interceptor para tratar erros
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
+  async (error) => {
+    if (error.response?.status === 429) {
+      // Não mostrar toast para 429 se vamos retry
+      const retryAfter = error.response.headers['retry-after'];
+      const delay = retryAfter ? parseInt(retryAfter) * 1000 : 2000;
+      
+      console.log('Rate limit atingido, aguardando...');
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      // Retry da requisição original
+      try {
+        return await retryRequest(error.config, 2, 1000);
+      } catch (retryError) {
+        toast.error("Servidor sobrecarregado. Tenta novamente mais tarde.");
+      }
+    } else if (error.response?.status === 401) {
       localStorage.removeItem("kpcloud_token");
       localStorage.removeItem("kpcloud_user");
       window.location.href = "/login";
@@ -53,10 +82,10 @@ api.interceptors.response.use(
     } else if (error.response?.status >= 500) {
       toast.error("Erro interno do servidor. Tenta novamente mais tarde.");
     }
+
     return Promise.reject(error);
   }
 );
-
 // REMOVER A LINHA "javascript" QUE ESTAVA AQUI
 
 export const authAPI = {
