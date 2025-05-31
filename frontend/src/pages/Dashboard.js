@@ -87,35 +87,36 @@ const Dashboard = () => {
     }
   };
 
-const handleCreateFolder = async () => {
-  if (!newFolderName.trim()) return;
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
 
-  console.log('=== CREATING FOLDER ===');
-  console.log('Name:', newFolderName);
-  console.log('Color:', newFolderColor);
-  console.log('Parent:', currentFolder);
+    console.log('=== CREATING FOLDER ===');
+    console.log('Name:', newFolderName);
+    console.log('Color:', newFolderColor);
+    console.log('Parent:', currentFolder);
 
-  // CORRIGIR: Enviar dados separados, não como objeto
-  const result = await createFolder(
-    newFolderName.trim(),    // name
-    newFolderColor,          // color  
-    currentFolder           // parent
-  );
+    const result = await createFolder(
+      newFolderName.trim(),
+      newFolderColor,
+      currentFolder
+    );
 
-  if (result.success) {
-    setFolderDialog(false);
-    setNewFolderName('');
-    setNewFolderColor('#3498db');
-    // Recarregar ficheiros da pasta atual
-    loadFiles(currentFolder);
-  }
-};
+    if (result.success) {
+      setFolderDialog(false);
+      setNewFolderName('');
+      setNewFolderColor('#3498db');
+      loadFiles(currentFolder);
+    }
+  };
 
   const handleUploadComplete = () => {
     setUploadDialog(false);
-    // Recarregar ficheiros da pasta atual
     loadFiles(currentFolder);
   };
+
+  // CORRIGIR: Definir quando mostrar EmptyState vs FileGrid
+  const isRootAndEmpty = currentPath.length === 0 && files.length === 0 && folders.length === 0;
+  const shouldShowFileGrid = !isRootAndEmpty || currentPath.length > 0; // SEMPRE mostrar FileGrid se não estamos na raiz
 
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
@@ -146,27 +147,25 @@ const handleCreateFolder = async () => {
         </Box>
       </Box>
 
-      {/* Conteúdo Principal */}
+      {/* Conteúdo Principal - CORRIGIDO */}
       {loading ? (
         <LoadingSpinner message="A carregar ficheiros..." />
-      ) : files.length === 0 && folders.length === 0 ? (
-        <EmptyState
-          icon={currentFolder ? Folder : InsertDriveFile}
-          title={currentFolder ? "Pasta vazia" : "Nenhum ficheiro"}
-          description={
-            currentFolder 
-              ? "Esta pasta não contém ficheiros. Começa por fazer upload de alguns ficheiros ou criar novas pastas."
-              : "Ainda não tens ficheiros. Começa por fazer upload de alguns ficheiros ou criar novas pastas."
-          }
-          showLogo={!currentFolder}
-        />
-      ) : (
+      ) : shouldShowFileGrid ? (
+        // SEMPRE mostrar FileGrid quando não estamos na raiz OU quando há conteúdo
         <FileGrid
           files={files}
           folders={folders}
           onFolderClick={handleFolderClick}
           currentPath={currentPath}
           onNavigateToPath={handleNavigateToPath}
+        />
+      ) : (
+        // Só mostrar EmptyState se estamos na raiz E está vazia
+        <EmptyState
+          icon={InsertDriveFile}
+          title="Nenhum ficheiro"
+          description="Ainda não tens ficheiros. Começa por fazer upload de alguns ficheiros ou criar novas pastas."
+          showLogo={true}
         />
       )}
 

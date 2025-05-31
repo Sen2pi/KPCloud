@@ -51,6 +51,8 @@ import {
   ViewList,
   ArrowBack,
   DriveFileMove,
+  ArrowUpward,
+  FolderOpen,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -58,12 +60,12 @@ import { useFiles } from "../../contexts/FileContext";
 import FavoriteButton from "../common/FavoriteButton";
 import ShareDialog from "./ShareDialog";
 
-const FileGrid = ({ 
-  files, 
-  folders, 
-  onFolderClick, 
-  currentPath = [], 
-  onNavigateToPath 
+const FileGrid = ({
+  files,
+  folders,
+  onFolderClick,
+  currentPath = [],
+  onNavigateToPath,
 }) => {
   const { downloadFile, moveToTrash, moveItem } = useFiles();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -74,15 +76,22 @@ const FileGrid = ({
   const [folderToDelete, setFolderToDelete] = useState(null);
   const [shareDialog, setShareDialog] = useState(false);
   const [itemToShare, setItemToShare] = useState(null);
-  const [viewMode, setViewMode] = useState('grid');
-  
+  const [viewMode, setViewMode] = useState("grid");
+
   // Estados para Drag & Drop
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverFolder, setDragOverFolder] = useState(null);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [dragOverParent, setDragOverParent] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
   console.log("=== FileGrid renderizado ===");
   console.log("currentPath:", currentPath);
+  console.log("files:", files?.length || 0);
+  console.log("folders:", folders?.length || 0);
 
   const handleViewModeChange = (event, newViewMode) => {
     if (newViewMode !== null) {
@@ -92,84 +101,103 @@ const FileGrid = ({
 
   // Drag & Drop Handlers
   const handleDragStart = (e, item) => {
-    console.log('Drag started:', item);
+    console.log("Drag started:", item);
     setDraggedItem(item);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', ''); // Para compatibilidade
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", "");
   };
 
   const handleDragEnd = (e) => {
-    console.log('Drag ended');
+    console.log("Drag ended");
     setDraggedItem(null);
     setDragOverFolder(null);
+    setDragOverParent(false);
   };
 
   const handleDragOver = (e, folder) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    
-    // Só permitir drop em pastas diferentes do item arrastado
+    e.dataTransfer.dropEffect = "move";
+
     if (draggedItem && folder._id !== draggedItem._id) {
       setDragOverFolder(folder._id);
     }
   };
 
+  const handleDragOverParent = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverParent(true);
+    setDragOverFolder(null);
+  };
+
   const handleDragLeave = (e) => {
-    // Só remover highlight se realmente saiu da pasta
     if (!e.currentTarget.contains(e.relatedTarget)) {
       setDragOverFolder(null);
     }
   };
 
+  const handleDragLeaveParent = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverParent(false);
+    }
+  };
+
   const handleDrop = async (e, targetFolder) => {
     e.preventDefault();
-    console.log('Drop event:', { draggedItem, targetFolder });
-    
+    console.log("Drop event:", { draggedItem, targetFolder });
+
     if (!draggedItem || !targetFolder) {
-      console.log('Missing draggedItem or targetFolder');
+      console.log("Missing draggedItem or targetFolder");
       return;
     }
 
-    // Não permitir mover para si próprio
     if (draggedItem._id === targetFolder._id) {
-      console.log('Cannot move item to itself');
+      console.log("Cannot move item to itself");
       return;
     }
 
-    // Não permitir mover pasta para dentro de si mesma (loop)
-    if (draggedItem.type === 'folder' && isDescendant(targetFolder._id, draggedItem._id)) {
+    if (
+      draggedItem.type === "folder" &&
+      isDescendant(targetFolder._id, draggedItem._id)
+    ) {
       setSnackbar({
         open: true,
-        message: 'Não é possível mover uma pasta para dentro de si mesma',
-        severity: 'error'
+        message: "Não é possível mover uma pasta para dentro de si mesma",
+        severity: "error",
       });
       return;
     }
 
     try {
-      console.log(`Moving ${draggedItem.type} "${draggedItem.originalName || draggedItem.name}" to folder "${targetFolder.name}"`);
-      
-      const result = await moveItem(draggedItem._id, draggedItem.type, targetFolder._id);
-      
+      console.log(
+        `Moving ${draggedItem.type} "${draggedItem.originalName || draggedItem.name}" to folder "${targetFolder.name}"`
+      );
+
+      const result = await moveItem(
+        draggedItem._id,
+        draggedItem.type,
+        targetFolder._id
+      );
+
       if (result.success) {
         setSnackbar({
           open: true,
           message: `${draggedItem.originalName || draggedItem.name} movido para ${targetFolder.name}`,
-          severity: 'success'
+          severity: "success",
         });
       } else {
         setSnackbar({
           open: true,
-          message: result.message || 'Erro ao mover item',
-          severity: 'error'
+          message: result.message || "Erro ao mover item",
+          severity: "error",
         });
       }
     } catch (error) {
-      console.error('Error moving item:', error);
+      console.error("Error moving item:", error);
       setSnackbar({
         open: true,
-        message: 'Erro ao mover item',
-        severity: 'error'
+        message: "Erro ao mover item",
+        severity: "error",
       });
     } finally {
       setDraggedItem(null);
@@ -177,10 +205,66 @@ const FileGrid = ({
     }
   };
 
-  // Verificar se uma pasta é descendente de outra (prevenir loops)
+  const handleDropToParent = async (e) => {
+    e.preventDefault();
+    console.log("Drop to parent event:", { draggedItem, currentPath });
+
+    if (!draggedItem) {
+      console.log("Missing draggedItem");
+      return;
+    }
+
+    try {
+      const parentFolderId =
+        currentPath.length > 1 ? currentPath[currentPath.length - 2].id : null;
+
+      console.log(
+        `Moving ${draggedItem.type} "${draggedItem.originalName || draggedItem.name}" to parent folder (ID: ${parentFolderId})`
+      );
+
+      const result = await moveItem(
+        draggedItem._id,
+        draggedItem.type,
+        parentFolderId
+      );
+
+      if (result.success) {
+        const parentName = parentFolderId
+          ? currentPath[currentPath.length - 2].name
+          : "Raiz";
+
+        setSnackbar({
+          open: true,
+          message: `${draggedItem.originalName || draggedItem.name} movido para ${parentName}`,
+          severity: "success",
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: result.message || "Erro ao mover item",
+          severity: "error",
+        });
+      }
+    } catch (error) {
+      console.error("Error moving item to parent:", error);
+      setSnackbar({
+        open: true,
+        message: "Erro ao mover item",
+        severity: "error",
+      });
+    } finally {
+      setDraggedItem(null);
+      setDragOverParent(false);
+    }
+  };
+
+  const navigateToParent = () => {
+    if (currentPath.length > 0 && onNavigateToPath) {
+      onNavigateToPath(currentPath.length - 2);
+    }
+  };
+
   const isDescendant = (potentialChild, potentialParent) => {
-    // Esta é uma verificação básica - idealmente seria feita no backend
-    // Por agora, vamos confiar no backend para validar
     return false;
   };
 
@@ -300,8 +384,8 @@ const FileGrid = ({
   };
 
   const allItems = [
-    ...folders.map((folder) => ({ ...folder, type: "folder" })),
-    ...files.map((file) => ({ ...file, type: "file" })),
+    ...(folders || []).map((folder) => ({ ...folder, type: "folder" })),
+    ...(files || []).map((file) => ({ ...file, type: "file" })),
   ];
 
   const handleItemClick = (item) => {
@@ -312,30 +396,132 @@ const FileGrid = ({
     }
   };
 
-  // Renderização de Grid com Drag & Drop
+  // Renderizar card da pasta pai - SEMPRE quando não estamos na raiz
+  const renderParentFolderCard = () => {
+    if (currentPath.length === 0) return null; // Só não mostrar na raiz
+
+    const parentName =
+      currentPath.length > 1
+        ? currentPath[currentPath.length - 2].name
+        : "Os Meus Ficheiros";
+
+    return (
+      <Grid item xs={12} sm={6} md={4} lg={3} key="parent-folder">
+        <Card
+          onDragOver={handleDragOverParent}
+          onDragLeave={handleDragLeaveParent}
+          onDrop={handleDropToParent}
+          sx={{
+            height: "100%",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+            border: dragOverParent ? "3px dashed" : "2px solid",
+            borderColor: dragOverParent ? "success.main" : "grey.300",
+            bgcolor: dragOverParent ? "success.light" : "grey.50",
+            transform: dragOverParent ? "scale(1.02)" : "none",
+            boxShadow: dragOverParent ? 4 : 1,
+            "&:hover": {
+              transform: dragOverParent ? "scale(1.02)" : "translateY(-2px)",
+              boxShadow: dragOverParent ? 4 : 3,
+              borderColor: dragOverParent ? "success.main" : "primary.main",
+            },
+          }}
+          onClick={navigateToParent}
+        >
+          <Box sx={{ position: "relative" }}>
+            <Box
+              sx={{
+                height: 120,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                bgcolor: dragOverParent ? "success.main" : "grey.400",
+                color: "white",
+                flexDirection: "column",
+              }}
+            >
+              <ArrowUpward sx={{ fontSize: 32, mb: 1 }} />
+              <FolderOpen sx={{ fontSize: 32 }} />
+              {dragOverParent && (
+                <Typography
+                  variant="caption"
+                  sx={{ mt: 1, fontWeight: "bold" }}
+                >
+                  Mover para aqui
+                </Typography>
+              )}
+            </Box>
+          </Box>
+
+          <CardContent>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+              <ArrowBack sx={{ fontSize: 16 }} />
+              <Typography
+                variant="subtitle2"
+                noWrap
+                title={`Voltar para ${parentName}`}
+                sx={{ fontWeight: "bold" }}
+              >
+                {parentName}
+              </Typography>
+            </Box>
+
+            <Typography variant="caption" color="text.secondary">
+              Clica para voltar ou arrasta itens para mover um nível acima
+            </Typography>
+
+            {dragOverParent && (
+              <Chip
+                label="Soltar aqui"
+                size="small"
+                color="success"
+                sx={{ mt: 1 }}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </Grid>
+    );
+  };
+
+  // Renderização de Grid
   const renderGridView = () => (
     <Grid container spacing={2}>
+      {/* Card da pasta pai - SEMPRE presente quando não estamos na raiz */}
+       {renderParentFolderCard()}
+
+      {/* Cards normais */}
       {allItems.map((item) => (
         <Grid item xs={12} sm={6} md={4} lg={3} key={item._id}>
           <Card
             draggable
             onDragStart={(e) => handleDragStart(e, item)}
             onDragEnd={handleDragEnd}
-            onDragOver={item.type === 'folder' ? (e) => handleDragOver(e, item) : undefined}
-            onDragLeave={item.type === 'folder' ? handleDragLeave : undefined}
-            onDrop={item.type === 'folder' ? (e) => handleDrop(e, item) : undefined}
+            onDragOver={
+              item.type === "folder"
+                ? (e) => handleDragOver(e, item)
+                : undefined
+            }
+            onDragLeave={item.type === "folder" ? handleDragLeave : undefined}
+            onDrop={
+              item.type === "folder" ? (e) => handleDrop(e, item) : undefined
+            }
             sx={{
               height: "100%",
               cursor: "pointer",
               transition: "all 0.2s ease",
               position: "relative",
               opacity: draggedItem?._id === item._id ? 0.5 : 1,
-              transform: dragOverFolder === item._id ? 'scale(1.02)' : 'none',
+              transform: dragOverFolder === item._id ? "scale(1.02)" : "none",
               boxShadow: dragOverFolder === item._id ? 4 : 1,
-              border: dragOverFolder === item._id ? '2px dashed' : 'none',
-              borderColor: dragOverFolder === item._id ? 'primary.main' : 'transparent',
+              border: dragOverFolder === item._id ? "2px dashed" : "none",
+              borderColor:
+                dragOverFolder === item._id ? "primary.main" : "transparent",
               "&:hover": {
-                transform: dragOverFolder === item._id ? 'scale(1.02)' : "translateY(-2px)",
+                transform:
+                  dragOverFolder === item._id
+                    ? "scale(1.02)"
+                    : "translateY(-2px)",
                 boxShadow: dragOverFolder === item._id ? 4 : 3,
               },
             }}
@@ -351,12 +537,15 @@ const FileGrid = ({
                     justifyContent: "center",
                     bgcolor: item.color || "#3498db",
                     color: "white",
-                    flexDirection: 'column',
+                    flexDirection: "column",
                   }}
                 >
                   <Folder sx={{ fontSize: 48 }} />
                   {dragOverFolder === item._id && (
-                    <Typography variant="caption" sx={{ mt: 1, fontWeight: 'bold' }}>
+                    <Typography
+                      variant="caption"
+                      sx={{ mt: 1, fontWeight: "bold" }}
+                    >
                       Soltar aqui
                     </Typography>
                   )}
@@ -464,10 +653,50 @@ const FileGrid = ({
           </Card>
         </Grid>
       ))}
+
+      {/* Mostrar mensagem se pasta estiver vazia (mas botão pai continua visível) */}
+      {allItems.length === 0 && currentPath.length > 0 && (
+      <Grid item xs={12}>
+        <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
+          <Folder sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
+          <Typography variant="h6" gutterBottom>
+            Pasta vazia
+          </Typography>
+          <Typography variant="body2">
+            Esta pasta não contém ficheiros ou outras pastas.
+          </Typography>
+          <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
+            Use o botão acima para voltar à pasta anterior.
+          </Typography>
+        </Box>
+      </Grid>
+    )}
+
+      {/* Se estamos na raiz e não há itens */}
+      {allItems.length === 0 && currentPath.length === 0 && (
+        <Grid item xs={12}>
+          <Box
+            sx={{
+              textAlign: "center",
+              py: 8,
+              color: "text.secondary",
+            }}
+          >
+            <InsertDriveFile sx={{ fontSize: 80, mb: 2, opacity: 0.3 }} />
+            <Typography variant="h5" gutterBottom>
+              Nenhum ficheiro
+            </Typography>
+            <Typography variant="body1">
+              Ainda não tens ficheiros. Começa por fazer upload de alguns
+              ficheiros ou criar novas pastas.
+            </Typography>
+          </Box>
+        </Grid>
+      )}
     </Grid>
   );
 
-  // Renderização de Lista com Drag & Drop
+  // Renderização de Lista
   const renderListView = () => (
     <TableContainer component={Paper}>
       <Table>
@@ -483,35 +712,113 @@ const FileGrid = ({
           </TableRow>
         </TableHead>
         <TableBody>
+          {/* Linha da pasta pai - SEMPRE presente quando não estamos na raiz */}
+          {currentPath.length > 0 && (
+            <TableRow
+              onDragOver={handleDragOverParent}
+              onDragLeave={handleDragLeaveParent}
+              onDrop={handleDropToParent}
+              hover
+              sx={{
+                cursor: "pointer",
+                bgcolor: dragOverParent ? "success.light" : "grey.50",
+                border: dragOverParent ? "2px dashed" : "none",
+                borderColor: dragOverParent ? "success.main" : "transparent",
+                "&:hover": {
+                  bgcolor: dragOverParent ? "success.light" : "action.hover",
+                },
+              }}
+              onClick={navigateToParent}
+            >
+              <TableCell>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <Avatar
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      bgcolor: dragOverParent ? "success.main" : "grey.500",
+                    }}
+                  >
+                    <ArrowUpward />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                      <ArrowBack sx={{ fontSize: 16, mr: 1 }} />
+                      {currentPath.length > 1
+                        ? currentPath[currentPath.length - 2].name
+                        : "Os Meus Ficheiros"}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Voltar à pasta anterior
+                    </Typography>
+                  </Box>
+                  {dragOverParent && (
+                    <Chip label="Soltar aqui" size="small" color="success" />
+                  )}
+                </Box>
+              </TableCell>
+
+              <TableCell>
+                <Chip
+                  label="Pasta Pai"
+                  size="small"
+                  color="default"
+                  variant="outlined"
+                />
+              </TableCell>
+
+              <TableCell>—</TableCell>
+              <TableCell>—</TableCell>
+              <TableCell>—</TableCell>
+              <TableCell>—</TableCell>
+              <TableCell align="center">—</TableCell>
+            </TableRow>
+          )}
+
+          {/* Linhas normais */}
           {allItems.map((item) => (
             <TableRow
               key={item._id}
               draggable
               onDragStart={(e) => handleDragStart(e, item)}
               onDragEnd={handleDragEnd}
-              onDragOver={item.type === 'folder' ? (e) => handleDragOver(e, item) : undefined}
-              onDragLeave={item.type === 'folder' ? handleDragLeave : undefined}
-              onDrop={item.type === 'folder' ? (e) => handleDrop(e, item) : undefined}
+              onDragOver={
+                item.type === "folder"
+                  ? (e) => handleDragOver(e, item)
+                  : undefined
+              }
+              onDragLeave={item.type === "folder" ? handleDragLeave : undefined}
+              onDrop={
+                item.type === "folder" ? (e) => handleDrop(e, item) : undefined
+              }
               hover
-              sx={{ 
+              sx={{
                 cursor: "pointer",
                 opacity: draggedItem?._id === item._id ? 0.5 : 1,
-                bgcolor: dragOverFolder === item._id ? 'action.hover' : 'transparent',
-                border: dragOverFolder === item._id ? '2px dashed' : 'none',
-                borderColor: dragOverFolder === item._id ? 'primary.main' : 'transparent',
-                "&:hover": { 
-                  bgcolor: dragOverFolder === item._id ? 'action.hover' : 'action.hover' 
-                }
+                bgcolor:
+                  dragOverFolder === item._id ? "action.hover" : "transparent",
+                border: dragOverFolder === item._id ? "2px dashed" : "none",
+                borderColor:
+                  dragOverFolder === item._id ? "primary.main" : "transparent",
+                "&:hover": {
+                  bgcolor:
+                    dragOverFolder === item._id
+                      ? "action.hover"
+                      : "action.hover",
+                },
               }}
               onClick={() => handleItemClick(item)}
             >
               <TableCell>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                   <Avatar
-                    sx={{ 
-                      width: 32, 
-                      height: 32, 
-                      bgcolor: item.type === "folder" ? "primary.main" : "secondary.main"
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      bgcolor:
+                        item.type === "folder"
+                          ? "primary.main"
+                          : "secondary.main",
                     }}
                   >
                     {item.type === "folder" ? (
@@ -523,17 +830,19 @@ const FileGrid = ({
                   <Typography
                     variant="body2"
                     noWrap
-                    title={item.type === "folder" ? item.name : item.originalName}
+                    title={
+                      item.type === "folder" ? item.name : item.originalName
+                    }
                     sx={{ maxWidth: 200 }}
                   >
                     {item.type === "folder" ? item.name : item.originalName}
                   </Typography>
-                  {dragOverFolder === item._id && item.type === 'folder' && (
+                  {dragOverFolder === item._id && item.type === "folder" && (
                     <Chip label="Soltar aqui" size="small" color="primary" />
                   )}
                 </Box>
               </TableCell>
-              
+
               <TableCell>
                 <Chip
                   label={item.type === "folder" ? "Pasta" : "Ficheiro"}
@@ -542,11 +851,11 @@ const FileGrid = ({
                   variant="outlined"
                 />
               </TableCell>
-              
+
               <TableCell>
                 {item.type === "file" ? formatFileSize(item.size) : "—"}
               </TableCell>
-              
+
               <TableCell>
                 <Typography variant="body2" color="text.secondary">
                   {format(new Date(item.createdAt), "dd/MM/yyyy HH:mm", {
@@ -554,11 +863,11 @@ const FileGrid = ({
                   })}
                 </Typography>
               </TableCell>
-              
+
               <TableCell>
                 {item.type === "file" && item.sharedWith?.length > 0 ? (
                   <Chip
-                    label={`${item.sharedWith.length} pessoa${item.sharedWith.length > 1 ? 's' : ''}`}
+                    label={`${item.sharedWith.length} pessoa${item.sharedWith.length > 1 ? "s" : ""}`}
                     size="small"
                     color="success"
                     variant="outlined"
@@ -567,11 +876,11 @@ const FileGrid = ({
                   "—"
                 )}
               </TableCell>
-              
+
               <TableCell>
                 <FavoriteButton item={item} size="small" />
               </TableCell>
-              
+
               <TableCell align="center">
                 <IconButton
                   size="small"
@@ -585,6 +894,53 @@ const FileGrid = ({
               </TableCell>
             </TableRow>
           ))}
+
+          {/* Linha para pasta vazia */}
+          {allItems.length === 0 && currentPath.length > 0 && (
+            <TableRow>
+              <TableCell colSpan={7}>
+                <Box
+                  sx={{
+                    textAlign: "center",
+                    py: 4,
+                    color: "text.secondary",
+                  }}
+                >
+                  <Folder sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
+                  <Typography variant="body2" gutterBottom>
+                    Esta pasta está vazia
+                  </Typography>
+                  <Typography variant="caption">
+                    Use a linha acima para voltar à pasta anterior.
+                  </Typography>
+                </Box>
+              </TableCell>
+            </TableRow>
+          )}
+
+          {/* Linha para raiz vazia */}
+          {allItems.length === 0 && currentPath.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={7}>
+                <Box
+                  sx={{
+                    textAlign: "center",
+                    py: 6,
+                    color: "text.secondary",
+                  }}
+                >
+                  <InsertDriveFile sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
+                  <Typography variant="h6" gutterBottom>
+                    Nenhum ficheiro
+                  </Typography>
+                  <Typography variant="body2">
+                    Ainda não tens ficheiros. Começa por fazer upload de alguns
+                    ficheiros ou criar novas pastas.
+                  </Typography>
+                </Box>
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
     </TableContainer>
@@ -594,44 +950,59 @@ const FileGrid = ({
     <>
       {/* Barra de Navegação */}
       <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2,
+          }}
+        >
           {/* Breadcrumbs */}
-          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1 }}>
             {currentPath.length > 0 && (
               <IconButton onClick={goBack} sx={{ mr: 1 }}>
                 <ArrowBack />
               </IconButton>
             )}
-            
-            <Breadcrumbs separator={<NavigateNext fontSize="small" />} sx={{ flexGrow: 1 }}>
+
+            <Breadcrumbs
+              separator={<NavigateNext fontSize="small" />}
+              sx={{ flexGrow: 1 }}
+            >
               <Link
                 component="button"
                 variant="body1"
                 onClick={() => onNavigateToPath && onNavigateToPath(-1)}
-                sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center',
-                  textDecoration: 'none',
-                  color: currentPath.length === 0 ? 'primary.main' : 'text.primary',
-                  fontWeight: currentPath.length === 0 ? 'bold' : 'normal'
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  textDecoration: "none",
+                  color:
+                    currentPath.length === 0 ? "primary.main" : "text.primary",
+                  fontWeight: currentPath.length === 0 ? "bold" : "normal",
                 }}
               >
                 <Home sx={{ mr: 0.5, fontSize: 20 }} />
                 Os Meus Ficheiros
               </Link>
-              
+
               {currentPath.map((pathItem, index) => (
                 <Link
                   key={pathItem.id}
                   component="button"
                   variant="body1"
                   onClick={() => onNavigateToPath && onNavigateToPath(index)}
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    textDecoration: 'none',
-                    color: index === currentPath.length - 1 ? 'primary.main' : 'text.primary',
-                    fontWeight: index === currentPath.length - 1 ? 'bold' : 'normal'
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    textDecoration: "none",
+                    color:
+                      index === currentPath.length - 1
+                        ? "primary.main"
+                        : "text.primary",
+                    fontWeight:
+                      index === currentPath.length - 1 ? "bold" : "normal",
                   }}
                 >
                   <Folder sx={{ mr: 0.5, fontSize: 20 }} />
@@ -662,17 +1033,19 @@ const FileGrid = ({
         </Box>
       </Box>
 
-      {/* Info sobre Drag & Drop */}
-      {allItems.length > 0 && (
+      {/* Info sobre funcionalidades - só quando há items */}
+      {(currentPath.length > 0 || allItems.length > 0) && (
         <Alert severity="info" sx={{ mb: 2 }}>
           <Typography variant="body2">
-            💡 Dica: Arrasta ficheiros e pastas para movê-los para outras pastas
+            {currentPath.length > 0
+              ? "⬆️ Use o card/linha especial para voltar à pasta anterior ou arraste itens para lá para movê-los um nível acima"
+              : "💡 Dica: Arrasta ficheiros e pastas para movê-los para outras pastas"}
           </Typography>
         </Alert>
       )}
 
       {/* Conteúdo baseado na vista selecionada */}
-      {viewMode === 'grid' ? renderGridView() : renderListView()}
+      {viewMode === "grid" ? renderGridView() : renderListView()}
 
       {/* Menu de contexto */}
       <Menu
@@ -704,7 +1077,7 @@ const FileGrid = ({
         </MenuItem>
       </Menu>
 
-      {/* Dialogs existentes */}
+      {/* Dialogs */}
       <Dialog
         open={deleteDialog}
         onClose={handleDialogClose}
