@@ -1,19 +1,26 @@
 const File = require('../models/File');
 const User = require('../models/User');
 const Folder = require('../models/Folder');
+const Share = require('../models/Share'); 
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs').promises;
+const fs = require('fs');
+const fsPromises = require('fs').promises; // ADICIONAR: Para 
 const crypto = require('crypto');
 
-// Configuração do Multer
+/*// SOLUÇÃO 1: Usar fs.mkdirSync (mais simples)
 const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
+  destination: (req, file, cb) => {
     const uploadPath = path.join(__dirname, '../../uploads');
+    
     try {
-      await fs.mkdir(uploadPath, { recursive: true });
+      // Usar versão síncrona
+      if (!fs.existsSync(uploadPath)) {
+        fs.mkdirSync(uploadPath, { recursive: true });
+      }
       cb(null, uploadPath);
     } catch (error) {
+      console.error('Erro ao criar diretório:', error);
       cb(error);
     }
   },
@@ -21,7 +28,39 @@ const storage = multer.diskStorage({
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, uniqueSuffix + path.extname(file.originalname));
   }
+});*/
+
+// ALTERNATIVA - SOLUÇÃO 2: Usar fs.mkdir com callback
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '../../uploads');
+    
+    // Verificar se existe primeiro
+    fs.access(uploadPath, fs.constants.F_OK, (err) => {
+      if (err) {
+        // Não existe, criar
+        fs.mkdir(uploadPath, { recursive: true }, (mkdirErr) => {
+          if (mkdirErr) {
+            console.error('Erro ao criar diretório:', mkdirErr);
+            return cb(mkdirErr);
+          }
+          cb(null, uploadPath);
+        });
+      } else {
+        // Já existe
+        cb(null, uploadPath);
+      }
+    });
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
 });
+
+
+
 
 const upload = multer({
   storage,
@@ -29,23 +68,36 @@ const upload = multer({
     fileSize: 100 * 1024 * 1024 // 100MB
   },
   fileFilter: (req, file, cb) => {
-    // Lista de tipos de ficheiro permitidos
-    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|zip|rar/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    // Lista básica de tipos permitidos (expande conforme necessário)
+    const allowedTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      'application/pdf', 'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain', 'text/csv',
+      'application/zip', 'application/x-rar-compressed',
+      'video/mp4', 'video/avi', 'video/mov',
+      'audio/mp3', 'audio/wav', 'audio/ogg'
+    ];
 
-    if (mimetype && extname) {
-      return cb(null, true);
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
     } else {
-      cb(new Error('Tipo de ficheiro não permitido'));
+      cb(new Error(`Tipo de ficheiro não permitido: ${file.mimetype}`), false);
     }
   }
 });
 
+// Middleware para upload
 exports.uploadMiddleware = upload.single('file');
 
-exports.uploadFile = async (req, res) => {
+// Upload de ficheiros
+exports.uploadFiles = async (req, res) => {
   try {
+    console.log('=== UPLOAD FILES DEBUG ===');
+    console.log('Req.file:', req.file);
+    console.log('Req.files:', req.files);
+    console.log('Req.body:', req.body);
+
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -59,7 +111,7 @@ exports.uploadFile = async (req, res) => {
     const user = await User.findById(req.user.userId);
     if (user.storageUsed + req.file.size > user.storageQuota) {
       // Eliminar ficheiro enviado
-      await fs.unlink(req.file.path);
+      await fsPromises.unlink(req.file.path).catch(() => {});
       return res.status(400).json({
         success: false,
         message: 'Quota de armazenamento excedida'
@@ -85,23 +137,23 @@ exports.uploadFile = async (req, res) => {
     user.storageUsed += req.file.size;
     await user.save();
 
-    // Emitir evento via Socket.IO
-    const { io } = require('../../server');
-    io.to(folderId || 'root').emit('file-uploaded', {
-      file: await file.populate('owner', 'username firstName lastName')
-    });
+    console.log('✅ Ficheiro uploadado com sucesso:', file.originalName);
 
     res.status(201).json({
       success: true,
       message: 'Ficheiro enviado com sucesso',
       file
     });
+
   } catch (error) {
+    console.error('=== ERRO UPLOAD FILES ===');
+    console.error('Error:', error);
+    
     // Limpar ficheiro em caso de erro
     if (req.file) {
-      await fs.unlink(req.file.path).catch(() => {});
+      await fsPromises.unlink(req.file.path).catch(() => {});
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Erro ao enviar ficheiro',
@@ -165,41 +217,227 @@ exports.getFiles = async (req, res) => {
 exports.downloadFile = async (req, res) => {
   try {
     const { fileId } = req.params;
+    console.log('=== DOWNLOAD FILE DEBUG ===');
+    console.log('File ID:', fileId);
+    console.log('User ID:', req.user.userId);
 
-    const file = await File.findOne({
-      _id: fileId,
-      $or: [
-        { owner: req.user.userId },
-        { 'sharedWith.user': req.user.userId },
-        { isPublic: true }
-      ]
-    });
+    // Validar se fileId é um ObjectId válido
+    if (!fileId || !fileId.match(/^[0-9a-fA-F]{24}$/)) {
+      console.log('File ID inválido:', fileId);
+      return res.status(400).json({
+        success: false,
+        message: 'ID de ficheiro inválido'
+      });
+    }
+
+    // Encontrar o ficheiro
+    console.log('Procurando ficheiro na base de dados...');
+    const file = await File.findById(fileId);
 
     if (!file) {
+      console.log('Ficheiro não encontrado na base de dados');
       return res.status(404).json({
         success: false,
         message: 'Ficheiro não encontrado'
       });
     }
 
-    // Incrementar contador de downloads
-    file.downloadCount += 1;
-    await file.save();
+    console.log('Ficheiro encontrado:');
+    console.log('- Nome:', file.originalName);
+    console.log('- Path:', file.path);
+    console.log('- Size:', file.size);
+    console.log('- Owner:', file.owner);
 
-    res.download(file.path, file.originalName);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Erro ao fazer download',
-      error: error.message
+    // Verificar permissões
+    let hasAccess = false;
+    let accessType = 'none';
+
+    // 1. Verificar se é o proprietário
+    if (file.owner.toString() === req.user.userId.toString()) {
+      hasAccess = true;
+      accessType = 'owner';
+      console.log('✓ Acesso como proprietário');
+    } else {
+      console.log('Não é proprietário, verificando partilhas...');
+      
+      // 2. Verificar partilha direta do ficheiro
+      const fileShare = await Share.findOne({
+        itemId: fileId,
+        itemType: 'file',
+        sharedWith: req.user.userId,
+        isActive: true
+      });
+
+      if (fileShare) {
+        hasAccess = true;
+        accessType = 'file_shared';
+        console.log('✓ Acesso através de partilha de ficheiro:', fileShare.permissions);
+      } else {
+        console.log('Ficheiro não partilhado diretamente, verificando pasta...');
+        
+        // 3. Verificar se a pasta está partilhada
+        if (file.folder) {
+          console.log('Verificando partilha da pasta:', file.folder);
+          const folderShare = await Share.findOne({
+            itemId: file.folder,
+            itemType: 'folder',
+            sharedWith: req.user.userId,
+            isActive: true
+          });
+
+          if (folderShare) {
+            hasAccess = true;
+            accessType = 'folder_shared';
+            console.log('✓ Acesso através de pasta partilhada:', folderShare.permissions);
+          } else {
+            console.log('Pasta não partilhada');
+          }
+        } else {
+          console.log('Ficheiro não está numa pasta');
+        }
+      }
+    }
+
+    if (!hasAccess) {
+      console.log('❌ Utilizador não tem permissão');
+      return res.status(403).json({
+        success: false,
+        message: 'Não tens permissão para fazer download deste ficheiro'
+      });
+    }
+
+    // Verificar se o ficheiro físico existe
+    console.log('Verificando se ficheiro físico existe:', file.path);
+    
+    if (!file.path) {
+      console.log('❌ Path do ficheiro não definido');
+      return res.status(500).json({
+        success: false,
+        message: 'Caminho do ficheiro não definido'
+      });
+    }
+
+    // Verificar se o path é absoluto ou relativo
+    let fullPath = file.path;
+    if (!path.isAbsolute(file.path)) {
+      fullPath = path.join(__dirname, '../../', file.path);
+      console.log('Path relativo convertido para absoluto:', fullPath);
+    }
+
+    // CORRIGIR: Agora fs.existsSync funciona
+    if (!fs.existsSync(fullPath)) {
+      console.log('❌ Ficheiro físico não encontrado:', fullPath);
+      
+      // Tentar caminhos alternativos
+      const alternativePaths = [
+        path.join(__dirname, '../../uploads/', file.filename),
+        path.join(__dirname, '../../uploads/temp/', file.filename),
+        path.join(process.cwd(), 'uploads/', file.filename),
+        path.join(process.cwd(), 'uploads/temp/', file.filename)
+      ];
+
+      let foundPath = null;
+      for (const altPath of alternativePaths) {
+        console.log('Tentando caminho alternativo:', altPath);
+        if (fs.existsSync(altPath)) {
+          foundPath = altPath;
+          console.log('✓ Ficheiro encontrado em:', altPath);
+          break;
+        }
+      }
+
+      if (!foundPath) {
+        return res.status(404).json({
+          success: false,
+          message: 'Ficheiro físico não encontrado no servidor',
+          debug: {
+            originalPath: file.path,
+            fullPath,
+            alternativesTried: alternativePaths
+          }
+        });
+      }
+
+      fullPath = foundPath;
+    }
+
+    console.log('✓ Ficheiro físico encontrado em:', fullPath);
+
+    // Obter informações do ficheiro
+    const stats = fs.statSync(fullPath);
+    console.log('Stats do ficheiro:');
+    console.log('- Tamanho real:', stats.size);
+    console.log('- Tamanho BD:', file.size);
+
+    // Incrementar contador de downloads
+    try {
+      file.downloadCount = (file.downloadCount || 0) + 1;
+      await file.save();
+      console.log('✓ Contador de downloads incrementado');
+    } catch (error) {
+      console.log('⚠️ Erro ao incrementar contador:', error.message);
+    }
+
+    console.log('🚀 Iniciando download... Acesso via:', accessType);
+
+    // Configurar headers para download
+    const headers = {
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(file.originalName)}"`,
+      'Content-Type': file.mimetype || 'application/octet-stream',
+      'Content-Length': stats.size,
+      'Cache-Control': 'no-cache'
+    };
+
+    console.log('Headers definidos:', headers);
+    res.set(headers);
+
+    // Criar stream do ficheiro
+    const fileStream = fs.createReadStream(fullPath);
+    
+    fileStream.on('error', (error) => {
+      console.error('❌ Erro ao ler stream do ficheiro:', error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          message: 'Erro ao ler ficheiro do disco'
+        });
+      }
     });
+
+    fileStream.on('end', () => {
+      console.log('✅ Download concluído com sucesso');
+    });
+
+    fileStream.on('close', () => {
+      console.log('📁 Stream do ficheiro fechado');
+    });
+
+    // Pipe do stream para a resposta
+    fileStream.pipe(res);
+
+  } catch (error) {
+    console.error('=== ERRO CRÍTICO DOWNLOAD FILE ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: 'Erro interno do servidor durante download',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Erro interno'
+      });
+    }
   }
 };
+
+
+
 
 exports.deleteFile = async (req, res) => {
   try {
     const { fileId } = req.params;
-
+    
     const file = await File.findOne({
       _id: fileId,
       owner: req.user.userId
@@ -213,7 +451,7 @@ exports.deleteFile = async (req, res) => {
     }
 
     // Eliminar ficheiro físico
-    await fs.unlink(file.path);
+    await fsPromises.unlink(file.path); // USAR fsPromises aqui
 
     // Atualizar armazenamento usado
     const user = await User.findById(req.user.userId);
@@ -223,14 +461,11 @@ exports.deleteFile = async (req, res) => {
     // Eliminar registo da base de dados
     await File.findByIdAndDelete(fileId);
 
-    // Emitir evento via Socket.IO
-    const { io } = require('../../server');
-    io.to(file.folder || 'root').emit('file-deleted', { fileId });
-
     res.json({
       success: true,
       message: 'Ficheiro eliminado com sucesso'
     });
+
   } catch (error) {
     res.status(500).json({
       success: false,

@@ -114,6 +114,8 @@ server.listen(PORT, () => {
   console.log('- /api/folders');
   console.log('- /api/trash');
   console.log('- /api/system');
+  console.log('- /api/forum');
+  console.log('- /api/share');
 });
 
 module.exports = { app, io };

@@ -333,31 +333,88 @@ const moveToTrash = async (item, itemType) => {
     }
   };
 
-  const downloadFile = async (file) => {
-    try {
-      const response = await fileAPI.download(file._id);
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", file.originalName);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      toast.error("Erro ao fazer download do ficheiro");
+const downloadFile = async (file) => {
+  try {
+    console.log('=== DOWNLOAD FILE FRONTEND ===');
+    console.log('File object:', file);
+    console.log('File ID:', file._id);
+    
+    if (!file._id) {
+      toast.error('ID do ficheiro não encontrado');
+      return;
     }
-  };
 
-  const shareFile = async (fileId, userEmail, permissions = "read") => {
-    try {
-      await fileAPI.share(fileId, { userEmail, permissions });
-      toast.success("Ficheiro partilhado com sucesso!");
-    } catch (error) {
-      toast.error("Erro ao partilhar ficheiro");
+    // Fazer pedido para download
+    const response = await fileAPI.download(file._id);
+    
+    console.log('Response headers:', response.headers);
+    console.log('Response data type:', typeof response.data);
+    
+    // Criar blob do response
+    const blob = new Blob([response.data], { 
+      type: response.headers['content-type'] || file.mimetype 
+    });
+    
+    // Criar URL temporário
+    const url = window.URL.createObjectURL(blob);
+    
+    // Criar elemento de download
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Obter nome do ficheiro dos headers ou usar o original
+    let filename = file.originalName;
+    const contentDisposition = response.headers['content-disposition'];
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (filenameMatch) {
+        filename = filenameMatch[1].replace(/['"]/g, '');
+        filename = decodeURIComponent(filename);
+      }
     }
-  };
+    
+    link.setAttribute('download', filename);
+    link.style.display = 'none';
+    
+    // Adicionar ao DOM, clicar e remover
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Limpar URL temporário
+    window.URL.revokeObjectURL(url);
+    
+    toast.success('Download iniciado!');
+    console.log('Download concluído');
+    
+  } catch (error) {
+    console.error('=== ERRO DOWNLOAD FRONTEND ===');
+    console.error('Error:', error);
+    console.error('Response:', error.response?.data);
+    
+    if (error.response?.status === 404) {
+      toast.error('Ficheiro não encontrado');
+    } else if (error.response?.status === 403) {
+      toast.error('Não tens permissão para fazer download deste ficheiro');
+    } else {
+      toast.error('Erro ao fazer download do ficheiro');
+    }
+  }
+};
 
+
+const shareFile = async (fileId, userEmail, permissions = 'read') => {
+  try {
+    await fileAPI.share(fileId, { userEmail, permissions });
+    toast.success('Ficheiro partilhado com sucesso!');
+    
+    // Recarregar ficheiros para mostrar ícone de partilha
+    await loadFiles(state.currentFolder);
+    
+  } catch (error) {
+    toast.error('Erro ao partilhar ficheiro');
+  }
+};
   const value = {
     ...state,
     loadFiles,

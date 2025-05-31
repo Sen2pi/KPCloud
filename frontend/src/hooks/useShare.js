@@ -87,8 +87,47 @@ export const useShare = () => {
     }
   };
 
+const getSharedFolderContents = async (folderId) => {
+  try {
+    setLoading(true);
+    console.log('Getting shared folder contents for:', folderId);
+    
+    const response = await shareAPI.getSharedFolderContents(folderId);
+    
+    if (response.data.success) {
+      return { success: true, items: response.data.items };
+    }
+  } catch (error) {
+    console.error('Erro ao obter conteúdo da pasta partilhada:', error);
+    toast.error('Erro ao carregar conteúdo da pasta');
+    return { success: false, items: [] };
+  } finally {
+    setLoading(false);
+  }
+};
+
+const getSharedWithMe = async (params = {}) => {
+  try {
+    setLoading(true);
+    console.log('Getting shared with me...');
+    
+    const response = await shareAPI.getSharedWithMe(params);
+    
+    if (response.data.success) {
+      return { success: true, items: response.data.items };
+    }
+  } catch (error) {
+    console.error('Erro ao obter ficheiros partilhados:', error);
+    toast.error('Erro ao carregar ficheiros partilhados');
+    return { success: false, items: [] };
+  } finally {
+    setLoading(false);
+  }
+};
   return {
     loading,
+    getSharedWithMe,
+    getSharedFolderContents,
     searchUsers,
     shareItem,
     getItemShares,

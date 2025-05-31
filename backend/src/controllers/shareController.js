@@ -302,6 +302,164 @@ exports.updatePermission = async (req, res) => {
     });
   }
 };
+exports.getSharedWithMe = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, type } = req.query;
+
+    const filter = { 
+      sharedWith: req.user.userId,
+      isActive: true 
+    };
+
+    if (type && type !== 'all') {
+      filter.itemType = type;
+    }
+
+    const shares = await Share.find(filter)
+      .populate({
+        path: 'owner',
+        select: 'firstName lastName username email profilePicture'
+      })
+      .populate({
+        path: 'itemId',
+        select: 'originalName name size mimetype createdAt',
+        // Nota: Mongoose irá automaticamente usar o modelo correto baseado no itemModel
+      })
+      .sort({ sharedAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Share.countDocuments(filter);
+
+    // Formatar dados para incluir informações do item
+    const formattedItems = await Promise.all(shares.map(async (share) => {
+      let item = null;
+      
+      try {
+        if (share.itemType === 'file') {
+          item = await File.findById(share.itemId)
+            .select('originalName size mimetype createdAt filename path');
+        } else {
+          item = await Folder.findById(share.itemId)
+            .select('name createdAt color');
+        }
+      } catch (error) {
+        console.log('Item não encontrado:', share.itemId);
+      }
+
+      return {
+        _id: share._id,
+        itemType: share.itemType,
+        item: item,
+        owner: share.owner,
+        permissions: share.permissions,
+        sharedAt: share.sharedAt
+      };
+    }));
+
+    // Filtrar itens onde o item ainda existe
+    const validItems = formattedItems.filter(item => item.item !== null);
+
+    res.json({
+      success: true,
+      items: validItems,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: validItems.length,
+        pages: Math.ceil(validItems.length / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao obter itens partilhados comigo:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao obter itens partilhados',
+      error: error.message
+    });
+  }
+};
+
+exports.getSharedFolderContents = async (req, res) => {
+  try {
+    const { folderId } = req.params;
+    
+    console.log('=== GET SHARED FOLDER CONTENTS ===');
+    console.log('Folder ID:', folderId);
+    console.log('User ID:', req.user.userId);
+
+    // Verificar se o utilizador tem acesso à pasta
+    const share = await Share.findOne({
+      itemId: folderId,
+      itemType: 'folder',
+      sharedWith: req.user.userId,
+      isActive: true
+    });
+
+    if (!share) {
+      return res.status(403).json({
+        success: false,
+        message: 'Não tens permissão para aceder a esta pasta'
+      });
+    }
+
+    console.log('User has access to folder, loading contents...');
+
+    // Obter ficheiros da pasta
+    const files = await File.find({
+      folder: folderId,
+      isDeleted: false
+    }).select('filename originalName mimetype size createdAt');
+
+    // Obter subpastas
+    const folders = await Folder.find({
+      parent: folderId,
+      isDeleted: false
+    }).select('name color createdAt');
+
+    console.log(`Found ${files.length} files and ${folders.length} folders`);
+
+    // Formatar resposta
+    const items = [
+      ...folders.map(folder => ({
+        _id: folder._id,
+        type: 'folder',
+        itemType: 'folder',
+        name: folder.name,
+        color: folder.color,
+        createdAt: folder.createdAt,
+        permissions: share.permissions // Herdar permissões da pasta pai
+      })),
+      ...files.map(file => ({
+        _id: file._id,
+        type: 'file',
+        itemType: 'file',
+        filename: file.filename,
+        originalName: file.originalName,
+        mimetype: file.mimetype,
+        size: file.size,
+        createdAt: file.createdAt,
+        permissions: share.permissions // Herdar permissões da pasta pai
+      }))
+    ];
+
+    res.json({
+      success: true,
+      items,
+      folderInfo: {
+        permissions: share.permissions,
+        sharedAt: share.sharedAt
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao obter conteúdo da pasta partilhada:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao obter conteúdo da pasta',
+      error: error.message
+    });
+  }
+};
 
 // Remover partilha
 exports.removeShare = async (req, res) => {

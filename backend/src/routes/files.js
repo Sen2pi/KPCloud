@@ -1,18 +1,19 @@
 const express = require('express');
 const {
-  uploadMiddleware,
-  uploadFile,
+  uploadFiles,
   getFiles,
   downloadFile,
   deleteFile,
   shareFile,
-  generatePublicLink
+  generatePublicLink,
+  uploadMiddleware // VERIFICAR SE ESTÁ IMPORTADO
 } = require('../controllers/fileController');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
 
-router.post('/upload', auth, uploadMiddleware, uploadFile);
+// USAR O MIDDLEWARE CORRETO
+router.post('/upload', auth, uploadMiddleware, uploadFiles);
 router.get('/', auth, getFiles);
 router.get('/download/:fileId', auth, downloadFile);
 router.delete('/:fileId', auth, deleteFile);

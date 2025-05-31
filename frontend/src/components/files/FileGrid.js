@@ -16,7 +16,19 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  Alert, // ADICIONAR ESTA LINHA
+  Alert,
+  Breadcrumbs,
+  Link,
+  ToggleButton,
+  ToggleButtonGroup,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Tooltip,
 } from "@mui/material";
 import {
   MoreVert,
@@ -31,29 +43,38 @@ import {
   PictureAsPdf,
   Archive,
   Folder,
-  Warning, // ADICIONAR ESTA LINHA
+  Warning,
+  Home,
+  NavigateNext,
+  ViewModule,
+  ViewList,
+  Star,
+  StarBorder,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { useFiles } from "../../contexts/FileContext";
 import FavoriteButton from "../common/FavoriteButton";
-import ShareDialog from "./ShareDialog"; // ADICIONAR IMPORT
+import ShareDialog from "./ShareDialog";
 
-const FileGrid = ({ files, folders, onFolderClick }) => {
+const FileGrid = ({ files, folders, onFolderClick, currentPath = [], onNavigateToPath }) => {
   const { downloadFile, moveToTrash } = useFiles();
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [folderDeleteDialog, setFolderDeleteDialog] = useState(false);
-  const [folderDeleteInfo, setFolderDeleteInfo] = useState(null);
   const [folderToDelete, setFolderToDelete] = useState(null);
   const [shareDialog, setShareDialog] = useState(false);
   const [itemToShare, setItemToShare] = useState(null);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' ou 'list'
 
-  console.log("=== FileGrid renderizado ===");
-  console.log("moveToTrash function:", moveToTrash);
-  console.log("downloadFile function:", downloadFile);
+  const handleViewModeChange = (event, newViewMode) => {
+    if (newViewMode !== null) {
+      setViewMode(newViewMode);
+    }
+  };
+
   const handleShare = () => {
     console.log("=== handleShare chamado ===", selectedItem);
     setItemToShare(selectedItem);
@@ -84,9 +105,8 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
   const handleMoveToTrash = () => {
     console.log("=== handleMoveToTrash chamado ===", selectedItem);
 
-    // Se for uma pasta, mostrar aviso especial
     if (selectedItem?.type === "folder") {
-      setFolderToDelete(selectedItem); // USAR FOLDERTODELETE EM VEZ DE FOLDERDELETEINFO
+      setFolderToDelete(selectedItem);
       setFolderDeleteDialog(true);
     } else {
       setItemToDelete(selectedItem);
@@ -105,10 +125,6 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
       console.log("=== CONFIRMING MOVE TO TRASH ===");
       console.log("Selected item:", itemToDelete);
       console.log("Item type:", itemType);
-      console.log(
-        "moveToTrash function exists:",
-        typeof moveToTrash === "function"
-      );
 
       if (typeof moveToTrash === "function") {
         console.log("Chamando moveToTrash...");
@@ -126,23 +142,22 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
 
   const confirmFolderDelete = () => {
     console.log("=== CONFIRMING FOLDER DELETE ===");
-    console.log("folderToDelete:", folderToDelete); // USAR FOLDERTOLETE
+    console.log("folderToDelete:", folderToDelete);
 
     if (folderToDelete) {
-      // USAR FOLDERTOLETE
       const itemType = "folder";
       console.log("Selected folder:", folderToDelete);
 
       if (typeof moveToTrash === "function") {
         console.log("Chamando moveToTrash para pasta...");
-        moveToTrash(folderToDelete, itemType); // USAR FOLDERTOLETE
+        moveToTrash(folderToDelete, itemType);
       }
     } else {
       console.error("folderToDelete é null!");
     }
 
     setFolderDeleteDialog(false);
-    setFolderToDelete(null); // RESETAR FOLDERTOLETE
+    setFolderToDelete(null);
   };
 
   const handleDialogClose = () => {
@@ -174,146 +189,325 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
     ...files.map((file) => ({ ...file, type: "file" })),
   ];
 
-  return (
-    <>
-      <Grid container spacing={2}>
-        {allItems.map((item) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={item._id}>
-            <Card
-              sx={{
-                height: "100%",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-                position: "relative",
-                "&:hover": {
-                  transform: "translateY(-2px)",
-                  boxShadow: 3,
-                },
-              }}
-              onClick={() => {
-                if (item.type === "folder") {
-                  onFolderClick(item._id);
-                } else {
-                  downloadFile(item);
-                }
-              }}
-            >
-              <Box sx={{ position: "relative" }}>
-                {item.type === "folder" ? (
-                  <Box
-                    sx={{
-                      height: 120,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      bgcolor: item.color || "#3498db",
-                      color: "white",
-                    }}
-                  >
-                    <Folder sx={{ fontSize: 48 }} />
-                  </Box>
-                ) : item.mimetype?.startsWith("image/") ? (
-                  <CardMedia
-                    component="img"
-                    height="120"
-                    image={`/uploads/${item.filename}`}
-                    alt={item.originalName}
-                    sx={{ objectFit: "cover" }}
-                  />
-                ) : (
-                  <Box
-                    sx={{
-                      height: 120,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      bgcolor: "grey.100",
-                    }}
-                  >
-                    <Avatar
-                      sx={{ width: 56, height: 56, bgcolor: "primary.main" }}
-                    >
-                      {item.type === "folder" ? (
-                        <Folder />
-                      ) : (
-                        getFileIcon(item.mimetype)
-                      )}
-                    </Avatar>
-                  </Box>
-                )}
+  const handleItemClick = (item) => {
+    if (item.type === "folder") {
+      onFolderClick(item._id);
+    } else {
+      downloadFile(item);
+    }
+  };
 
+  // Renderização de Grid (atual)
+  const renderGridView = () => (
+    <Grid container spacing={2}>
+      {allItems.map((item) => (
+        <Grid item xs={12} sm={6} md={4} lg={3} key={item._id}>
+          <Card
+            sx={{
+              height: "100%",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              position: "relative",
+              "&:hover": {
+                transform: "translateY(-2px)",
+                boxShadow: 3,
+              },
+            }}
+            onClick={() => handleItemClick(item)}
+          >
+            <Box sx={{ position: "relative" }}>
+              {item.type === "folder" ? (
                 <Box
                   sx={{
-                    position: "absolute",
-                    top: 8,
-                    left: 8,
-                    bgcolor: "rgba(255, 255, 255, 0.9)",
-                    borderRadius: "50%",
-                    backdropFilter: "blur(4px)",
+                    height: 120,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    bgcolor: item.color || "#3498db",
+                    color: "white",
                   }}
                 >
-                  <FavoriteButton item={item} size="small" />
+                  <Folder sx={{ fontSize: 48 }} />
                 </Box>
-
-                <IconButton
+              ) : item.mimetype?.startsWith("image/") ? (
+                <CardMedia
+                  component="img"
+                  height="120"
+                  image={`/uploads/${item.filename}`}
+                  alt={item.originalName}
+                  sx={{ objectFit: "cover" }}
+                />
+              ) : (
+                <Box
                   sx={{
-                    position: "absolute",
-                    top: 8,
-                    right: 8,
-                    bgcolor: "rgba(255, 255, 255, 0.9)",
-                    "&:hover": { bgcolor: "rgba(255, 255, 255, 0.9)" },
-                    color: "#1565c0", // AZUL BOLD
+                    height: 120,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    bgcolor: "grey.100",
                   }}
-                  onClick={(e) => handleMenuOpen(e, item)}
+                >
+                  <Avatar
+                    sx={{ width: 56, height: 56, bgcolor: "primary.main" }}
+                  >
+                    {item.type === "folder" ? (
+                      <Folder />
+                    ) : (
+                      getFileIcon(item.mimetype)
+                    )}
+                  </Avatar>
+                </Box>
+              )}
+
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 8,
+                  left: 8,
+                  bgcolor: "rgba(255, 255, 255, 0.9)",
+                  borderRadius: "50%",
+                  backdropFilter: "blur(4px)",
+                }}
+              >
+                <FavoriteButton item={item} size="small" />
+              </Box>
+
+              <IconButton
+                sx={{
+                  position: "absolute",
+                  top: 8,
+                  right: 8,
+                  bgcolor: "rgba(255, 255, 255, 0.9)",
+                  "&:hover": { bgcolor: "rgba(255, 255, 255, 0.9)" },
+                  color: "#1565c0",
+                }}
+                onClick={(e) => handleMenuOpen(e, item)}
+              >
+                <MoreVert />
+              </IconButton>
+            </Box>
+
+            <CardContent>
+              <Typography
+                variant="subtitle2"
+                noWrap
+                title={item.type === "folder" ? item.name : item.originalName}
+                gutterBottom
+              >
+                {item.type === "folder" ? item.name : item.originalName}
+              </Typography>
+
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  mt: 1,
+                }}
+              >
+                <Typography variant="caption" color="text.secondary">
+                  {format(new Date(item.createdAt), "dd/MM/yyyy", {
+                    locale: pt,
+                  })}
+                </Typography>
+                {item.type === "file" && (
+                  <Typography variant="caption" color="text.secondary">
+                    {formatFileSize(item.size)}
+                  </Typography>
+                )}
+              </Box>
+
+              {item.type === "file" && item.sharedWith?.length > 0 && (
+                <Chip
+                  label="Partilhado"
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  sx={{ mt: 1 }}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      ))}
+    </Grid>
+  );
+
+  // Renderização de Lista (nova)
+  const renderListView = () => (
+    <TableContainer component={Paper}>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>Nome</TableCell>
+            <TableCell>Tipo</TableCell>
+            <TableCell>Tamanho</TableCell>
+            <TableCell>Modificado</TableCell>
+            <TableCell>Partilhado</TableCell>
+            <TableCell>Favorito</TableCell>
+            <TableCell align="center">Ações</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {allItems.map((item) => (
+            <TableRow
+              key={item._id}
+              hover
+              sx={{ 
+                cursor: "pointer",
+                "&:hover": { bgcolor: "action.hover" }
+              }}
+              onClick={() => handleItemClick(item)}
+            >
+              <TableCell>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <Avatar
+                    sx={{ 
+                      width: 32, 
+                      height: 32, 
+                      bgcolor: item.type === "folder" ? "primary.main" : "secondary.main"
+                    }}
+                  >
+                    {item.type === "folder" ? (
+                      <Folder />
+                    ) : (
+                      getFileIcon(item.mimetype)
+                    )}
+                  </Avatar>
+                  <Typography
+                    variant="body2"
+                    noWrap
+                    title={item.type === "folder" ? item.name : item.originalName}
+                    sx={{ maxWidth: 200 }}
+                  >
+                    {item.type === "folder" ? item.name : item.originalName}
+                  </Typography>
+                </Box>
+              </TableCell>
+              
+              <TableCell>
+                <Chip
+                  label={item.type === "folder" ? "Pasta" : "Ficheiro"}
+                  size="small"
+                  color={item.type === "folder" ? "primary" : "default"}
+                  variant="outlined"
+                />
+              </TableCell>
+              
+              <TableCell>
+                {item.type === "file" ? formatFileSize(item.size) : "—"}
+              </TableCell>
+              
+              <TableCell>
+                <Typography variant="body2" color="text.secondary">
+                  {format(new Date(item.createdAt), "dd/MM/yyyy HH:mm", {
+                    locale: pt,
+                  })}
+                </Typography>
+              </TableCell>
+              
+              <TableCell>
+                {item.type === "file" && item.sharedWith?.length > 0 ? (
+                  <Chip
+                    label={`${item.sharedWith.length} pessoa${item.sharedWith.length > 1 ? 's' : ''}`}
+                    size="small"
+                    color="success"
+                    variant="outlined"
+                  />
+                ) : (
+                  "—"
+                )}
+              </TableCell>
+              
+              <TableCell>
+                <FavoriteButton item={item} size="small" />
+              </TableCell>
+              
+              <TableCell align="center">
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleMenuOpen(e, item);
+                  }}
                 >
                   <MoreVert />
                 </IconButton>
-              </Box>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
 
-              <CardContent>
-                <Typography
-                  variant="subtitle2"
-                  noWrap
-                  title={item.type === "folder" ? item.name : item.originalName}
-                  gutterBottom
-                >
-                  {item.type === "folder" ? item.name : item.originalName}
-                </Typography>
+  return (
+    <>
+      {/* Barra de Navegação */}
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          {/* Breadcrumbs */}
+          <Breadcrumbs separator={<NavigateNext fontSize="small" />} sx={{ flexGrow: 1 }}>
+            <Link
+              component="button"
+              variant="body1"
+              onClick={() => onNavigateToPath && onNavigateToPath(-1)}
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center',
+                textDecoration: 'none',
+                color: currentPath.length === 0 ? 'primary.main' : 'text.primary',
+                fontWeight: currentPath.length === 0 ? 'bold' : 'normal'
+              }}
+            >
+              <Home sx={{ mr: 0.5, fontSize: 20 }} />
+              Os Meus Ficheiros
+            </Link>
+            
+            {currentPath.map((pathItem, index) => (
+              <Link
+                key={pathItem.id}
+                component="button"
+                variant="body1"
+                onClick={() => onNavigateToPath && onNavigateToPath(index)}
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  textDecoration: 'none',
+                  color: index === currentPath.length - 1 ? 'primary.main' : 'text.primary',
+                  fontWeight: index === currentPath.length - 1 ? 'bold' : 'normal'
+                }}
+              >
+                <Folder sx={{ mr: 0.5, fontSize: 20 }} />
+                {pathItem.name}
+              </Link>
+            ))}
+          </Breadcrumbs>
 
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    mt: 1,
-                  }}
-                >
-                  <Typography variant="caption" color="text.secondary">
-                    {format(new Date(item.createdAt), "dd/MM/yyyy", {
-                      locale: pt,
-                    })}
-                  </Typography>
-                  {item.type === "file" && (
-                    <Typography variant="caption" color="text.secondary">
-                      {formatFileSize(item.size)}
-                    </Typography>
-                  )}
-                </Box>
+          {/* Toggle de Vista */}
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={handleViewModeChange}
+            size="small"
+          >
+            <ToggleButton value="grid">
+              <Tooltip title="Vista de Grelha">
+                <ViewModule />
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="list">
+              <Tooltip title="Vista de Lista">
+                <ViewList />
+              </Tooltip>
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+      </Box>
 
-                {item.type === "file" && item.sharedWith?.length > 0 && (
-                  <Chip
-                    label="Partilhado"
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                    sx={{ mt: 1 }}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      {/* Conteúdo baseado na vista selecionada */}
+      {viewMode === 'grid' ? renderGridView() : renderListView()}
 
+      {/* Menu de contexto */}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
@@ -326,8 +520,6 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
           </MenuItem>
         )}
         <MenuItem onClick={handleShare}>
-          {" "}
-          {/* ATUALIZAR ESTA LINHA */}
           <Share sx={{ mr: 1 }} />
           Partilhar
         </MenuItem>
@@ -341,7 +533,7 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
         </MenuItem>
       </Menu>
 
-      {/* Dialog de Confirmação para Ficheiros */}
+      {/* Dialogs existentes */}
       <Dialog
         open={deleteDialog}
         onClose={handleDialogClose}
@@ -367,12 +559,11 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
         </DialogActions>
       </Dialog>
 
-      {/* Dialog de Confirmação para Pastas */}
       <Dialog
         open={folderDeleteDialog}
         onClose={() => {
           setFolderDeleteDialog(false);
-          setFolderToDelete(null); // RESETAR QUANDO CANCELAR
+          setFolderToDelete(null);
         }}
         closeAfterTransition={false}
       >
@@ -410,6 +601,7 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
           </Button>
         </DialogActions>
       </Dialog>
+
       <ShareDialog
         open={shareDialog}
         onClose={() => {
