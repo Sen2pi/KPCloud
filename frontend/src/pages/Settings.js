@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Box,
   Toolbar,
@@ -25,8 +25,8 @@ import {
   DialogContent,
   DialogActions,
   Chip,
-  Grid
-} from '@mui/material';
+  Grid,
+} from "@mui/material";
 import {
   Palette,
   Language,
@@ -36,16 +36,19 @@ import {
   CloudUpload,
   Visibility,
   RestoreFromTrash,
-  Warning
-} from '@mui/icons-material';
-import { useSettings } from '../contexts/SettingsContext';
-import { useStorageInfo } from '../hooks/useStorageInfo';
-import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext'; // ADICIONAR ESTA LINHA
-import ThemeToggle from '../components/common/ThemeToggle'; // ADICIONAR ESTA LINHA
+  Warning,
+} from "@mui/icons-material";
+import { useSettings } from "../contexts/SettingsContext";
+import { useStorageInfo } from "../hooks/useStorageInfo";
+import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext"; // ADICIONAR ESTA LINHA
+import toast from 'react-hot-toast'; // ADICIONAR ESTA LINHA
+import { systemAPI } from '../services/api'; // ADICIONAR 
+import ThemeToggle from "../components/common/ThemeToggle"; // ADICIONAR ESTA LINHA
 
 const Settings = () => {
-  const { settings, updateSetting, updateNestedSetting, resetSettings } = useSettings();
+  const { settings, updateSetting, updateNestedSetting, resetSettings } =
+    useSettings();
   const { user } = useAuth();
   const storageInfo = useStorageInfo();
   const { isDarkMode } = useTheme(); // ADICIONAR ESTA LINHA
@@ -65,7 +68,7 @@ const Settings = () => {
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
       <Toolbar />
-      
+
       <Typography variant="h4" gutterBottom>
         Definições
       </Typography>
@@ -78,6 +81,7 @@ const Settings = () => {
           <Tab label="Privacidade" />
           <Tab label="Armazenamento" />
           <Tab label="Upload" />
+          <Tab label="API" />
         </Tabs>
 
         {/* Tab Geral */}
@@ -85,17 +89,22 @@ const Settings = () => {
           <Typography variant="h6" gutterBottom>
             Configurações Gerais
           </Typography>
-          
+
           <List>
             <ListItem>
               <ListItemIcon>
                 <Language />
               </ListItemIcon>
-              <ListItemText primary="Idioma" secondary="Seleciona o idioma da interface" />
+              <ListItemText
+                primary="Idioma"
+                secondary="Seleciona o idioma da interface"
+              />
               <FormControl sx={{ minWidth: 120 }}>
                 <Select
-                  value={settings.language || 'pt'}
-                  onChange={(e) => updateSetting('general', 'language', e.target.value)}
+                  value={settings.language || "pt"}
+                  onChange={(e) =>
+                    updateSetting("general", "language", e.target.value)
+                  }
                   size="small"
                 >
                   <MenuItem value="pt">Português</MenuItem>
@@ -112,14 +121,21 @@ const Settings = () => {
               <ListItemIcon>
                 <Visibility />
               </ListItemIcon>
-              <ListItemText 
-                primary="Modo de visualização padrão" 
+              <ListItemText
+                primary="Modo de visualização padrão"
                 secondary="Como os ficheiros são apresentados por defeito"
               />
               <FormControl sx={{ minWidth: 120 }}>
                 <Select
-                  value={settings.display?.viewMode || 'grid'}
-                  onChange={(e) => updateNestedSetting('display', 'viewMode', 'defaultView', e.target.value)}
+                  value={settings.display?.viewMode || "grid"}
+                  onChange={(e) =>
+                    updateNestedSetting(
+                      "display",
+                      "viewMode",
+                      "defaultView",
+                      e.target.value
+                    )
+                  }
                   size="small"
                 >
                   <MenuItem value="grid">Grelha</MenuItem>
@@ -132,14 +148,21 @@ const Settings = () => {
               <ListItemIcon>
                 <Storage />
               </ListItemIcon>
-              <ListItemText 
-                primary="Itens por página" 
+              <ListItemText
+                primary="Itens por página"
                 secondary="Número de ficheiros mostrados por página"
               />
               <TextField
                 type="number"
                 value={settings.display?.itemsPerPage || 20}
-                onChange={(e) => updateNestedSetting('display', 'itemsPerPage', 'count', parseInt(e.target.value))}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "display",
+                    "itemsPerPage",
+                    "count",
+                    parseInt(e.target.value)
+                  )
+                }
                 size="small"
                 sx={{ width: 80 }}
                 inputProps={{ min: 10, max: 100 }}
@@ -153,7 +176,7 @@ const Settings = () => {
           <Typography variant="h6" gutterBottom>
             Aparência
           </Typography>
-          
+
           <List>
             <ListItem>
               <ListItemIcon>
@@ -163,9 +186,9 @@ const Settings = () => {
                 primary="Tema"
                 secondary="Escolhe entre tema claro ou escuro"
               />
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                 <Typography variant="body2" color="text.secondary">
-                  {isDarkMode ? 'Escuro' : 'Claro'}
+                  {isDarkMode ? "Escuro" : "Claro"}
                 </Typography>
                 <ThemeToggle variant="switch" />
               </Box>
@@ -181,7 +204,14 @@ const Settings = () => {
               />
               <Switch
                 checked={settings.display?.compactMode || false}
-                onChange={(e) => updateNestedSetting('display', 'compactMode', 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "display",
+                    "compactMode",
+                    "enabled",
+                    e.target.checked
+                  )
+                }
               />
             </ListItem>
 
@@ -195,7 +225,14 @@ const Settings = () => {
               />
               <Switch
                 checked={settings.display?.showHiddenFiles || false}
-                onChange={(e) => updateNestedSetting('display', 'showHiddenFiles', 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "display",
+                    "showHiddenFiles",
+                    "enabled",
+                    e.target.checked
+                  )
+                }
               />
             </ListItem>
 
@@ -209,7 +246,14 @@ const Settings = () => {
               />
               <Switch
                 checked={settings.display?.animations !== false}
-                onChange={(e) => updateNestedSetting('display', 'animations', 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "display",
+                    "animations",
+                    "enabled",
+                    e.target.checked
+                  )
+                }
               />
             </ListItem>
           </List>
@@ -220,7 +264,7 @@ const Settings = () => {
           <Typography variant="h6" gutterBottom>
             Notificações
           </Typography>
-          
+
           <List>
             <ListItem>
               <ListItemIcon>
@@ -232,7 +276,14 @@ const Settings = () => {
               />
               <Switch
                 checked={settings.notifications?.email !== false}
-                onChange={(e) => updateNestedSetting('notifications', 'email', 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "notifications",
+                    "email",
+                    "enabled",
+                    e.target.checked
+                  )
+                }
               />
             </ListItem>
 
@@ -246,7 +297,14 @@ const Settings = () => {
               />
               <Switch
                 checked={settings.notifications?.desktop !== false}
-                onChange={(e) => updateNestedSetting('notifications', 'desktop', 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "notifications",
+                    "desktop",
+                    "enabled",
+                    e.target.checked
+                  )
+                }
               />
             </ListItem>
 
@@ -260,7 +318,14 @@ const Settings = () => {
               />
               <Switch
                 checked={settings.notifications?.uploadComplete !== false}
-                onChange={(e) => updateNestedSetting('notifications', 'uploadComplete', 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "notifications",
+                    "uploadComplete",
+                    "enabled",
+                    e.target.checked
+                  )
+                }
               />
             </ListItem>
 
@@ -274,7 +339,14 @@ const Settings = () => {
               />
               <Switch
                 checked={settings.notifications?.storageWarning !== false}
-                onChange={(e) => updateNestedSetting('notifications', 'storageWarning', 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "notifications",
+                    "storageWarning",
+                    "enabled",
+                    e.target.checked
+                  )
+                }
               />
             </ListItem>
           </List>
@@ -285,7 +357,7 @@ const Settings = () => {
           <Typography variant="h6" gutterBottom>
             Privacidade e Segurança
           </Typography>
-          
+
           <List>
             <ListItem>
               <ListItemIcon>
@@ -297,7 +369,14 @@ const Settings = () => {
               />
               <Switch
                 checked={settings.privacy?.twoFactorEnabled || false}
-                onChange={(e) => updateNestedSetting('privacy', 'twoFactorEnabled', 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "privacy",
+                    "twoFactorEnabled",
+                    "enabled",
+                    e.target.checked
+                  )
+                }
               />
             </ListItem>
 
@@ -311,7 +390,14 @@ const Settings = () => {
               />
               <Switch
                 checked={settings.privacy?.publicProfile || false}
-                onChange={(e) => updateNestedSetting('privacy', 'publicProfile', 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "privacy",
+                    "publicProfile",
+                    "enabled",
+                    e.target.checked
+                  )
+                }
               />
             </ListItem>
 
@@ -325,7 +411,14 @@ const Settings = () => {
               />
               <Switch
                 checked={settings.privacy?.shareAnalytics !== false}
-                onChange={(e) => updateNestedSetting('privacy', 'shareAnalytics', 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "privacy",
+                    "shareAnalytics",
+                    "enabled",
+                    e.target.checked
+                  )
+                }
               />
             </ListItem>
           </List>
@@ -343,8 +436,8 @@ const Settings = () => {
               Espaço em Disco Disponível
             </Typography>
             <Typography variant="body2">
-              Usado: {storageInfo.formattedUsage} de {storageInfo.formattedQuota} 
-              ({storageInfo.getUsagePercentage()}%)
+              Usado: {storageInfo.formattedUsage} de{" "}
+              {storageInfo.formattedQuota}({storageInfo.getUsagePercentage()}%)
             </Typography>
             <Typography variant="body2">
               Disponível: {storageInfo.formattedAvailable}
@@ -367,7 +460,14 @@ const Settings = () => {
               />
               <Switch
                 checked={settings.storage?.autoCleanup !== false}
-                onChange={(e) => updateNestedSetting('storage', 'autoCleanup', 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "storage",
+                    "autoCleanup",
+                    "enabled",
+                    e.target.checked
+                  )
+                }
               />
             </ListItem>
 
@@ -375,14 +475,21 @@ const Settings = () => {
               <ListItemIcon>
                 <RestoreFromTrash />
               </ListItemIcon>
-              <ListItemText 
-                primary="Retenção no lixo (dias)" 
+              <ListItemText
+                primary="Retenção no lixo (dias)"
                 secondary="Quantos dias manter ficheiros no lixo"
               />
               <TextField
                 type="number"
                 value={settings.storage?.trashRetentionDays || 30}
-                onChange={(e) => updateNestedSetting('storage', 'trashRetentionDays', 'days', parseInt(e.target.value))}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "storage",
+                    "trashRetentionDays",
+                    "days",
+                    parseInt(e.target.value)
+                  )
+                }
                 size="small"
                 sx={{ width: 80 }}
                 inputProps={{ min: 1, max: 365 }}
@@ -399,7 +506,14 @@ const Settings = () => {
               />
               <Switch
                 checked={settings.storage?.duplicateDetection !== false}
-                onChange={(e) => updateNestedSetting('storage', 'duplicateDetection', 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "storage",
+                    "duplicateDetection",
+                    "enabled",
+                    e.target.checked
+                  )
+                }
               />
             </ListItem>
           </List>
@@ -410,7 +524,7 @@ const Settings = () => {
           <Typography variant="h6" gutterBottom>
             Configurações de Upload
           </Typography>
-          
+
           <List>
             <ListItem>
               <ListItemIcon>
@@ -422,7 +536,14 @@ const Settings = () => {
               />
               <Switch
                 checked={settings.upload?.autoUpload !== false}
-                onChange={(e) => updateNestedSetting('upload', 'autoUpload', 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "upload",
+                    "autoUpload",
+                    "enabled",
+                    e.target.checked
+                  )
+                }
               />
             </ListItem>
 
@@ -436,12 +557,28 @@ const Settings = () => {
               />
               <Switch
                 checked={settings.upload?.compressionEnabled !== false}
-                onChange={(e) => updateNestedSetting('upload', 'compressionEnabled', 'enabled', e.target.checked)}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "upload",
+                    "compressionEnabled",
+                    "enabled",
+                    e.target.checked
+                  )
+                }
               />
             </ListItem>
 
-            <ListItem sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', mb: 2 }}>
+            <ListItem
+              sx={{ flexDirection: "column", alignItems: "flex-start" }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  width: "100%",
+                  mb: 2,
+                }}
+              >
                 <Storage sx={{ mr: 2 }} />
                 <ListItemText
                   primary="Tamanho máximo de ficheiro"
@@ -449,40 +586,80 @@ const Settings = () => {
                 />
               </Box>
               <Slider
-                value={(settings.upload?.maxFileSize || 100 * 1024 * 1024) / (1024 * 1024)}
-                onChange={(e, value) => updateNestedSetting('upload', 'maxFileSize', 'size', value * 1024 * 1024)}
+                value={
+                  (settings.upload?.maxFileSize || 100 * 1024 * 1024) /
+                  (1024 * 1024)
+                }
+                onChange={(e, value) =>
+                  updateNestedSetting(
+                    "upload",
+                    "maxFileSize",
+                    "size",
+                    value * 1024 * 1024
+                  )
+                }
                 min={1}
                 max={500}
                 step={1}
                 marks={[
-                  { value: 10, label: '10MB' },
-                  { value: 100, label: '100MB' },
-                  { value: 500, label: '500MB' }
+                  { value: 10, label: "10MB" },
+                  { value: 100, label: "100MB" },
+                  { value: 500, label: "500MB" },
                 ]}
-                sx={{ width: '100%' }}
+                sx={{ width: "100%" }}
               />
             </ListItem>
 
-            <ListItem sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', mb: 2 }}>
+            <ListItem
+              sx={{ flexDirection: "column", alignItems: "flex-start" }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  width: "100%",
+                  mb: 2,
+                }}
+              >
                 <CloudUpload sx={{ mr: 2 }} />
                 <ListItemText
                   primary="Tipos de ficheiro permitidos"
                   secondary="Seleciona os tipos de ficheiro que podes enviar"
                 />
               </Box>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {['image/*', 'video/*', 'audio/*', 'application/*', 'text/*'].map((type) => (
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                {[
+                  "image/*",
+                  "video/*",
+                  "audio/*",
+                  "application/*",
+                  "text/*",
+                ].map((type) => (
                   <Chip
                     key={type}
-                    label={type.replace('/*', 's')}
-                    color={(settings.upload?.allowedTypes || []).includes(type) ? 'primary' : 'default'}
+                    label={type.replace("/*", "s")}
+                    color={
+                      (settings.upload?.allowedTypes || []).includes(type)
+                        ? "primary"
+                        : "default"
+                    }
                     onClick={() => {
-                      const currentTypes = settings.upload?.allowedTypes || ['image/*', 'video/*', 'audio/*', 'application/*', 'text/*'];
+                      const currentTypes = settings.upload?.allowedTypes || [
+                        "image/*",
+                        "video/*",
+                        "audio/*",
+                        "application/*",
+                        "text/*",
+                      ];
                       const newTypes = currentTypes.includes(type)
-                        ? currentTypes.filter(t => t !== type)
+                        ? currentTypes.filter((t) => t !== type)
                         : [...currentTypes, type];
-                      updateNestedSetting('upload', 'allowedTypes', 'types', newTypes);
+                      updateNestedSetting(
+                        "upload",
+                        "allowedTypes",
+                        "types",
+                        newTypes
+                      );
                     }}
                   />
                 ))}
@@ -490,9 +667,176 @@ const Settings = () => {
             </ListItem>
           </List>
         </TabPanel>
+        {/* Tab API */}
+        <TabPanel value={activeTab} index={6}>
+          <Typography variant="h6" gutterBottom>
+            Configurações da API
+          </Typography>
 
+          <Alert severity="info" sx={{ mb: 3 }}>
+            <Typography variant="body2">
+              Configurações avançadas para conectar com diferentes servidores
+              KPCloud.
+              <strong>
+                {" "}
+                Só muda estas configurações se souberes o que estás a fazer.
+              </strong>
+            </Typography>
+          </Alert>
+
+          <List>
+            <ListItem
+              sx={{ flexDirection: "column", alignItems: "flex-start" }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  width: "100%",
+                  mb: 2,
+                }}
+              >
+                <Storage sx={{ mr: 2 }} />
+                <ListItemText
+                  primary="URL Base da API"
+                  secondary={`Atual: ${settings.api?.baseURL || "http://localhost:5000/api"}`}
+                />
+              </Box>
+              <TextField
+                fullWidth
+                label="URL da API"
+                value={settings.api?.baseURL || "http://localhost:5000/api"}
+                onChange={(e) => {
+                  updateNestedSetting("api", "baseURL", "url", e.target.value);
+                  // Atualizar o axios imediatamente
+                  import("../services/api").then(({ updateApiBaseURL }) => {
+                    updateApiBaseURL(e.target.value);
+                  });
+                }}
+                placeholder="http://localhost:5000/api"
+                helperText="Ex: http://localhost:5000/api, https://api.kpcloud.com/v1"
+                size="small"
+              />
+            </ListItem>
+
+            <Divider />
+
+            <ListItem
+              sx={{ flexDirection: "column", alignItems: "flex-start" }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  width: "100%",
+                  mb: 2,
+                }}
+              >
+                <CloudUpload sx={{ mr: 2 }} />
+                <ListItemText
+                  primary="Timeout (segundos)"
+                  secondary="Tempo limite para pedidos à API"
+                />
+              </Box>
+              <TextField
+                type="number"
+                value={(settings.api?.timeout || 30000) / 1000}
+                onChange={(e) =>
+                  updateNestedSetting(
+                    "api",
+                    "timeout",
+                    "ms",
+                    parseInt(e.target.value) * 1000
+                  )
+                }
+                size="small"
+                sx={{ width: 120 }}
+                inputProps={{ min: 5, max: 300 }}
+                helperText="5-300 segundos"
+              />
+            </ListItem>
+
+            <Divider />
+
+            <ListItem>
+              <Box sx={{ width: "100%" }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  URLs Pré-definidos
+                </Typography>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1 }}>
+                  {[
+                    { label: "Local", url: "http://localhost:5000/api" },
+                    {
+                      label: "Desenvolvimento",
+                      url: "http://localhost:3001/api",
+                    },
+                    { label: "Produção", url: "https://api.kpcloud.com/v1" },
+                  ].map((preset) => (
+                    <Chip
+                      key={preset.label}
+                      label={`${preset.label}: ${preset.url}`}
+                      variant={
+                        settings.api?.baseURL === preset.url
+                          ? "filled"
+                          : "outlined"
+                      }
+                      color={
+                        settings.api?.baseURL === preset.url
+                          ? "primary"
+                          : "default"
+                      }
+                      onClick={() => {
+                        updateNestedSetting(
+                          "api",
+                          "baseURL",
+                          "url",
+                          preset.url
+                        );
+                        import("../services/api").then(
+                          ({ updateApiBaseURL }) => {
+                            updateApiBaseURL(preset.url);
+                          }
+                        );
+                        toast.success(`API URL alterado para: ${preset.label}`);
+                      }}
+                      sx={{ mb: 1 }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            </ListItem>
+
+            <Divider />
+
+            <ListItem>
+              <Box sx={{ width: "100%" }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Testar Conexão
+                </Typography>
+                <Button
+                  variant="outlined"
+                  onClick={async () => {
+                    try {
+                      const response = await systemAPI.getDiskSpace();
+                      if (response.data.success) {
+                        toast.success("Conexão com a API bem-sucedida!");
+                      } else {
+                        toast.error("API respondeu mas com erro");
+                      }
+                    } catch (error) {
+                      toast.error(`Erro de conexão: ${error.message}`);
+                    }
+                  }}
+                  sx={{ mt: 1 }}
+                >
+                  Testar Conexão
+                </Button>
+              </Box>
+            </ListItem>
+          </List>
+        </TabPanel>
         {/* Botões de Ação */}
-        <Box sx={{ p: 3, borderTop: 1, borderColor: 'divider' }}>
+        <Box sx={{ p: 3, borderTop: 1, borderColor: "divider" }}>
           <Grid container spacing={2} justifyContent="flex-end">
             <Grid item>
               <Button
@@ -504,28 +848,28 @@ const Settings = () => {
               </Button>
             </Grid>
             <Grid item>
-              <Button variant="contained">
-                Guardar Alterações
-              </Button>
+              <Button variant="contained">Guardar Alterações</Button>
             </Grid>
           </Grid>
         </Box>
       </Paper>
 
       {/* Dialog de Confirmação de Reset */}
-      <Dialog open={resetDialog} onClose={() => setResetDialog(false)} closeAfterTransition={false}>
+      <Dialog
+        open={resetDialog}
+        onClose={() => setResetDialog(false)}
+        closeAfterTransition={false}
+      >
         <DialogTitle>Restaurar Configurações Padrão</DialogTitle>
         <DialogContent>
           <Typography>
-            Tens a certeza que queres restaurar todas as configurações para os valores padrão?
-            Esta ação não pode ser desfeita.
+            Tens a certeza que queres restaurar todas as configurações para os
+            valores padrão? Esta ação não pode ser desfeita.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setResetDialog(false)}>
-            Cancelar
-          </Button>
-          <Button 
+          <Button onClick={() => setResetDialog(false)}>Cancelar</Button>
+          <Button
             onClick={() => {
               resetSettings();
               setResetDialog(false);

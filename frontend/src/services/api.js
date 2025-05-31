@@ -1,19 +1,39 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Função para obter o URL base atual das configurações
+const getBaseURL = () => {
+  const settings = JSON.parse(localStorage.getItem('kpcloud_settings') || '{}');
+  return settings.api?.baseURL || process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+};
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
+// Criar instância do axios sem baseURL fixo
+let api = axios.create({
   timeout: 30000,
 });
 
-// Interceptor para adicionar token
+// Função para atualizar a instância do axios com novo baseURL
+export const updateApiBaseURL = (newURL) => {
+  api.defaults.baseURL = newURL;
+  // console.log('API Base URL atualizado para:', newURL); // REMOVER OU COMENTAR
+};
+
+// Configurar baseURL inicial
+updateApiBaseURL(getBaseURL());
+
+// Interceptor para adicionar token e garantir baseURL correto
 api.interceptors.request.use((config) => {
+  // Sempre verificar se o baseURL está correto
+  const currentBaseURL = getBaseURL();
+  if (config.baseURL !== currentBaseURL) {
+    config.baseURL = currentBaseURL;
+  }
+  
   const token = localStorage.getItem('kpcloud_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
   return config;
 });
 
@@ -33,17 +53,21 @@ api.interceptors.response.use(
   }
 );
 
+// REMOVER A LINHA "javascript" QUE ESTAVA AQUI
+
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   register: (userData) => api.post('/auth/register', userData),
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (data) => api.put('/users/profile', data),
   changePassword: (data) => api.put('/users/password', data),
+  uploadProfilePicture: (formData) => api.post('/users/profile-picture', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   enable2FA: () => api.post('/users/2fa/enable'),
   verify2FA: (token) => api.post('/users/2fa/verify', { token }),
   disable2FA: (password) => api.post('/users/2fa/disable', { password }),
 };
-
 
 export const fileAPI = {
   upload: (formData, onProgress) => api.post('/files/upload', formData, {
@@ -53,7 +77,6 @@ export const fileAPI = {
   getFiles: (params) => api.get('/files', { params }),
   download: (fileId) => api.get(`/files/download/${fileId}`, { responseType: 'blob' }),
   
-  // ENDPOINTS CORRETOS PARA O LIXO
   moveToTrash: (fileId) => api.post(`/trash/files/${fileId}`),
   restoreFromTrash: (fileId) => api.post(`/trash/files/${fileId}/restore`),
   deletePermanently: (fileId) => api.delete(`/trash/files/${fileId}/permanent`),
@@ -62,7 +85,6 @@ export const fileAPI = {
   generatePublicLink: (fileId) => api.post(`/files/${fileId}/public-link`),
   getSharedFiles: (params) => api.get('/users/shared-files', { params }),
   
-  // Endpoints para lixo
   getTrash: (params) => api.get('/trash', { params }),
   emptyTrash: () => api.delete('/trash/empty'),
 };
@@ -72,14 +94,12 @@ export const folderAPI = {
   getFolders: (params) => api.get('/folders', { params }),
   update: (folderId, data) => api.put(`/folders/${folderId}`, data),
   
-  // ENDPOINTS CORRETOS PARA O LIXO
   moveToTrash: (folderId) => api.post(`/trash/folders/${folderId}`),
   restoreFromTrash: (folderId) => api.post(`/trash/folders/${folderId}/restore`),
   deletePermanently: (folderId) => api.delete(`/trash/folders/${folderId}/permanent`),
   
   share: (folderId, data) => api.post(`/folders/${folderId}/share`, data),
 };
-
 
 export const userAPI = {
   getStorageStats: () => api.get('/users/storage-stats'),
@@ -88,6 +108,5 @@ export const userAPI = {
 export const systemAPI = {
   getDiskSpace: () => api.get('/system/disk-space'),
 };
-
 
 export default api;

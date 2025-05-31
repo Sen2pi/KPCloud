@@ -20,6 +20,7 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
 import LoadingSpinner from './components/common/LoadingSpinner';
+import { useApiConfig } from './hooks/useApiConfig';
 import { Box } from '@mui/material';
 
 const ProtectedRoute = ({ children }) => {
@@ -61,110 +62,122 @@ const Layout = ({ children }) => {
   );
 };
 
+// NOVO COMPONENTE - ADICIONAR ESTA FUNÇÃO
+const AppContent = () => {
+  // USAR O HOOK AQUI (DENTRO DOS PROVIDERS)
+  useApiConfig();
+
+  return (
+    <AuthProvider>
+      <FileProvider>
+        <Router>
+          <Routes>
+            <Route
+              path="/login"
+              element={
+                <PublicRoute>
+                  <Login />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <PublicRoute>
+                  <Register />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Dashboard />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/shared"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <SharedFiles />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/favorites"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Favorites />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/trash"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Trash />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Profile />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Settings />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/404" element={<NotFound />} />
+            <Route path="/" element={<Navigate to="/dashboard" />} />
+            <Route path="*" element={<Navigate to="/404" />} />
+          </Routes>
+        </Router>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              borderRadius: '12px',
+              background: 'var(--toast-bg)',
+              color: 'var(--toast-color)',
+              border: '1px solid var(--toast-border)',
+            },
+          }}
+        />
+      </FileProvider>
+    </AuthProvider>
+  );
+};
+
+// MODIFICAR A FUNÇÃO APP PRINCIPAL
 function App() {
   return (
     // ORDEM CORRETA: ThemeProvider primeiro
     <ThemeProvider>
       <SettingsProvider>
-        <AuthProvider>
-          <FileProvider>
-            <Router>
-              <Routes>
-                <Route
-                  path="/login"
-                  element={
-                    <PublicRoute>
-                      <Login />
-                    </PublicRoute>
-                  }
-                />
-                <Route
-                  path="/register"
-                  element={
-                    <PublicRoute>
-                      <Register />
-                    </PublicRoute>
-                  }
-                />
-                <Route
-                  path="/dashboard"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <Dashboard />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/shared"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <SharedFiles />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/favorites"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <Favorites />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/trash"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <Trash />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/profile"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <Profile />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/settings"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <Settings />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route path="/404" element={<NotFound />} />
-                <Route path="/" element={<Navigate to="/dashboard" />} />
-                <Route path="*" element={<Navigate to="/404" />} />
-              </Routes>
-            </Router>
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  borderRadius: '12px',
-                  background: 'var(--toast-bg)',
-                  color: 'var(--toast-color)',
-                  border: '1px solid var(--toast-border)',
-                },
-              }}
-            />
-          </FileProvider>
-        </AuthProvider>
+        {/* USAR O NOVO COMPONENTE APPCONTENT */}
+        <AppContent />
       </SettingsProvider>
     </ThemeProvider>
   );

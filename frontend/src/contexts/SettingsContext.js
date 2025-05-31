@@ -5,8 +5,13 @@ import toast from 'react-hot-toast';
 const SettingsContext = createContext();
 
 const initialSettings = {
-  theme: 'light', // 'light' | 'dark'
+  theme: 'light',
   language: 'pt',
+  // ADICIONAR CONFIGURAÇÃO DA API
+  api: {
+    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+    timeout: 30000,
+  },
   notifications: {
     email: true,
     desktop: true,
@@ -20,14 +25,14 @@ const initialSettings = {
     shareAnalytics: true
   },
   display: {
-    viewMode: 'grid', // 'grid' | 'list'
+    viewMode: 'grid',
     itemsPerPage: 20,
     showHiddenFiles: false,
     compactMode: false
   },
   upload: {
     autoUpload: true,
-    maxFileSize: 100 * 1024 * 1024, // 100MB
+    maxFileSize: 100 * 1024 * 1024,
     allowedTypes: ['image/*', 'video/*', 'audio/*', 'application/*', 'text/*'],
     compressionEnabled: true
   },
@@ -37,6 +42,7 @@ const initialSettings = {
     duplicateDetection: true
   }
 };
+
 
 const settingsReducer = (state, action) => {
   switch (action.type) {
