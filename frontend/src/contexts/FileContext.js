@@ -123,6 +123,8 @@ const fileReducer = (state, action) => {
 export const FileProvider = ({ children }) => {
   const [state, dispatch] = useReducer(fileReducer, initialState);
 
+  console.log('=== FileProvider renderizado ===');
+  console.log('Estado atual:', state);
   useEffect(() => {
     // Configurar listeners do WebSocket
     socketService.on("file-uploaded", (data) => {
@@ -240,41 +242,52 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  const moveToTrash = async (item, itemType) => {
-    try {
-      console.log("=== MOVE TO TRASH DEBUG ===");
-      console.log("Item:", item);
-      console.log("Item Type:", itemType);
-      console.log("Item ID:", item._id);
+const moveToTrash = async (item, itemType) => {
+  try {
+    console.log("=== MOVE TO TRASH DEBUG ===");
+    console.log("Item:", item);
+    console.log("Item Type:", itemType);
+    console.log("Item ID:", item._id);
 
-      if (itemType === "file") {
-        console.log("Chamando fileAPI.moveToTrash...");
-        const response = await fileAPI.moveToTrash(item._id);
-        console.log("Resposta:", response);
-      } else {
-        console.log("Chamando folderAPI.moveToTrash...");
-        const response = await folderAPI.moveToTrash(item._id);
-        console.log("Resposta:", response);
-      }
+    if (itemType === "file") {
+      console.log("Chamando fileAPI.moveToTrash...");
+      const response = await fileAPI.moveToTrash(item._id);
+      console.log("Resposta:", response);
+    } else {
+      console.log("Chamando folderAPI.moveToTrash...");
+      const response = await folderAPI.moveToTrash(item._id);
+      console.log("Resposta:", response);
+    }
 
-      // Remover da lista atual
-      dispatch({ type: "MOVE_TO_TRASH", payload: { itemType, item } });
-      
-      // Recarregar lixo para mostrar o item
-      await loadTrash();
-      
-      toast.success(
-        `${itemType === "file" ? "Ficheiro" : "Pasta"} movido para o lixo`
+    // Remover da lista atual
+    dispatch({ type: "MOVE_TO_TRASH", payload: { itemType, item } });
+    
+    // Recarregar lixo para mostrar o item
+    await loadTrash();
+    
+    toast.success(
+      `${itemType === "file" ? "Ficheiro" : "Pasta"} movido para o lixo`
+    );
+  } catch (error) {
+    console.error("=== ERRO MOVE TO TRASH ===");
+    console.error("Error:", error);
+    console.error("Response:", error.response?.data);
+    
+    // MELHORAR MENSAGEM DE ERRO ESPECÍFICA
+    if (error.response?.status === 400 && itemType === "folder") {
+      toast.error(
+        `Não é possível mover a pasta "${item.name}" para o lixo porque contém ficheiros. Elimine primeiro o conteúdo da pasta ou use a opção "Eliminar tudo".`,
+        {
+          duration: 6000, // Mostrar por mais tempo
+        }
       );
-    } catch (error) {
-      console.error("=== ERRO MOVE TO TRASH ===");
-      console.error("Error:", error);
-      console.error("Response:", error.response?.data);
+    } else {
       toast.error(
         `Erro ao mover ${itemType === "file" ? "ficheiro" : "pasta"} para o lixo: ${error.response?.data?.message || error.message}`
       );
     }
-  };
+  }
+};
 
   const restoreFromTrash = async (item) => {
     try {

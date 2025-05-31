@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  Alert, // ADICIONAR ESTA LINHA
 } from '@mui/material';
 import {
   MoreVert,
@@ -30,6 +31,7 @@ import {
   PictureAsPdf,
   Archive,
   Folder,
+  Warning, // ADICIONAR ESTA LINHA
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
@@ -41,16 +43,25 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [folderDeleteDialog, setFolderDeleteDialog] = useState(false);
+  const [folderDeleteInfo, setFolderDeleteInfo] = useState(null);
+
+  console.log('=== FileGrid renderizado ===');
+  console.log('moveToTrash function:', moveToTrash);
+  console.log('downloadFile function:', downloadFile);
 
   const handleMenuOpen = (event, item) => {
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
     setSelectedItem(item);
+    console.log('=== Menu aberto para item ===', item);
   };
 
   const handleMenuClose = () => {
     setAnchorEl(null);
     setSelectedItem(null);
+    console.log('=== Menu fechado ===');
   };
 
   const handleDownload = () => {
@@ -61,23 +72,70 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
   };
 
   const handleMoveToTrash = () => {
-    setDeleteDialog(true);
+    console.log('=== handleMoveToTrash chamado ===', selectedItem);
+    
+    // Se for uma pasta, mostrar aviso especial
+    if (selectedItem?.type === 'folder') {
+      setFolderDeleteInfo({
+        folderName: selectedItem.name,
+        hasContent: true // Assumir que pode ter conteúdo
+      });
+      setFolderDeleteDialog(true);
+    } else {
+      setItemToDelete(selectedItem);
+      setDeleteDialog(true);
+    }
+    
     handleMenuClose();
   };
 
-// No FileGrid.js
-const confirmMoveToTrash = () => {
-  if (selectedItem) {
-    const itemType = selectedItem.originalName ? 'file' : 'folder';
-    console.log('=== CONFIRMING MOVE TO TRASH ===');
-    console.log('Selected item:', selectedItem);
-    console.log('Item type:', itemType);
-    moveToTrash(selectedItem, itemType);
-  }
-  setDeleteDialog(false);
-  setSelectedItem(null);
-};
+  const confirmMoveToTrash = () => {
+    console.log('=== confirmMoveToTrash CHAMADO ===');
+    console.log('itemToDelete:', itemToDelete);
+    
+    if (itemToDelete) {
+      const itemType = itemToDelete.originalName ? 'file' : 'folder';
+      console.log('=== CONFIRMING MOVE TO TRASH ===');
+      console.log('Selected item:', itemToDelete);
+      console.log('Item type:', itemType);
+      console.log('moveToTrash function exists:', typeof moveToTrash === 'function');
+      
+      if (typeof moveToTrash === 'function') {
+        console.log('Chamando moveToTrash...');
+        moveToTrash(itemToDelete, itemType);
+      } else {
+        console.error('moveToTrash não é uma função!');
+      }
+    } else {
+      console.error('itemToDelete é null!');
+    }
+    
+    setDeleteDialog(false);
+    setItemToDelete(null);
+  };
 
+  const confirmFolderDelete = () => {
+    if (selectedItem) {
+      const itemType = 'folder';
+      console.log('=== CONFIRMING FOLDER DELETE ===');
+      console.log('Selected item:', selectedItem);
+      
+      if (typeof moveToTrash === 'function') {
+        console.log('Chamando moveToTrash para pasta...');
+        moveToTrash(selectedItem, itemType);
+      }
+    }
+    
+    setFolderDeleteDialog(false);
+    setFolderDeleteInfo(null);
+    setSelectedItem(null);
+  };
+
+  const handleDialogClose = () => {
+    console.log('=== Dialog cancelado ===');
+    setDeleteDialog(false);
+    setItemToDelete(null);
+  };
 
   const getFileIcon = (mimetype) => {
     if (mimetype?.startsWith('image/')) return <Image />;
@@ -163,7 +221,6 @@ const confirmMoveToTrash = () => {
                   </Box>
                 )}
                 
-                {/* Botão de Favorito */}
                 <Box
                   sx={{
                     position: 'absolute',
@@ -252,19 +309,23 @@ const confirmMoveToTrash = () => {
         </MenuItem>
       </Menu>
 
-      {/* Dialog de Confirmação */}
-      <Dialog open={deleteDialog} onClose={() => setDeleteDialog(false)} closeAfterTransition={false}>
+      {/* Dialog de Confirmação para Ficheiros */}
+      <Dialog 
+        open={deleteDialog} 
+        onClose={handleDialogClose}
+        closeAfterTransition={false}
+      >
         <DialogTitle>
           Mover para o Lixo
         </DialogTitle>
         <DialogContent>
           <Typography>
-            Tens a certeza que queres mover "{selectedItem?.originalName || selectedItem?.name}" para o lixo?
+            Tens a certeza que queres mover "{itemToDelete?.originalName || itemToDelete?.name}" para o lixo?
             Poderás restaurá-lo mais tarde se necessário.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialog(false)}>
+          <Button onClick={handleDialogClose}>
             Cancelar
           </Button>
           <Button 
@@ -273,6 +334,42 @@ const confirmMoveToTrash = () => {
             variant="contained"
           >
             Mover para Lixo
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog de Confirmação para Pastas */}
+      <Dialog 
+        open={folderDeleteDialog} 
+        onClose={() => setFolderDeleteDialog(false)}
+        closeAfterTransition={false}
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Warning sx={{ color: 'warning.main', mr: 1 }} />
+            Mover Pasta para o Lixo
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography gutterBottom>
+            Tens a certeza que queres mover a pasta "{folderDeleteInfo?.folderName}" para o lixo?
+          </Typography>
+          {folderDeleteInfo?.hasContent && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Esta pasta pode conter ficheiros e/ou outras pastas. Todo o conteúdo será também movido para o lixo.
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFolderDeleteDialog(false)}>
+            Cancelar
+          </Button>
+          <Button 
+            onClick={confirmFolderDelete}
+            color="warning"
+            variant="contained"
+          >
+            Mover Tudo para o Lixo
           </Button>
         </DialogActions>
       </Dialog>
