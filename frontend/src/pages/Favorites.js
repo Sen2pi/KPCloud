@@ -359,7 +359,7 @@ const Favorites = () => {
       </Menu>
 
       {/* Dialog de Confirmação para Limpar Favoritos */}
-      <Dialog open={clearDialog} onClose={() => setClearDialog(false)}>
+      <Dialog open={clearDialog} onClose={() => setClearDialog(false)} closeAfterTransition={false}>
         <DialogTitle>
           Limpar Favoritos
         </DialogTitle>

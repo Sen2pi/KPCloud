@@ -48,10 +48,11 @@ const Trash = () => {
   const [emptyTrashDialog, setEmptyTrashDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
 
-  useEffect(() => {
-    console.log("Carregando lixo...");
-    loadTrash(); // Usar a função do contexto
-  }, []);
+useEffect(() => {
+  console.log("Carregando lixo...");
+  loadTrash();
+}, []); // ADICIONAR ARRAY VAZIO PARA EVITAR LOOP INFINITO
+
   const handleMenuOpen = (event, item) => {
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
@@ -274,7 +275,7 @@ const Trash = () => {
       </Menu>
 
       {/* Dialog de Confirmação para Eliminar Permanentemente */}
-      <Dialog open={deleteDialog} onClose={() => setDeleteDialog(false)}>
+      <Dialog open={deleteDialog} onClose={() => setDeleteDialog(false)}   closeAfterTransition={false}>
         <DialogTitle>
           <Box sx={{ display: "flex", alignItems: "center" }}>
             <Warning sx={{ color: "error.main", mr: 1 }} />

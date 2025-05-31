@@ -7,6 +7,7 @@ const fs = require('fs').promises;
 exports.moveFileToTrash = async (req, res) => {
   try {
     const { fileId } = req.params;
+    console.log(`Tentando mover ficheiro ${fileId} para o lixo`);
 
     const file = await File.findOne({
       _id: fileId,
@@ -15,16 +16,19 @@ exports.moveFileToTrash = async (req, res) => {
     });
 
     if (!file) {
+      console.log(`Ficheiro ${fileId} não encontrado`);
       return res.status(404).json({
         success: false,
         message: 'Ficheiro não encontrado'
       });
     }
 
+    console.log(`Ficheiro encontrado: ${file.originalName}`);
+
     // Usar o método softDelete
     await file.softDelete(req.user.userId);
 
-    console.log(`Ficheiro ${file.originalName} movido para o lixo`);
+    console.log(`Ficheiro ${file.originalName} movido para o lixo com sucesso`);
 
     res.json({
       success: true,
@@ -39,6 +43,7 @@ exports.moveFileToTrash = async (req, res) => {
     });
   }
 };
+
 
 // Mover pasta para o lixo
 exports.moveFolderToTrash = async (req, res) => {

@@ -85,4 +85,9 @@ export const userAPI = {
   getStorageStats: () => api.get('/users/storage-stats'),
 };
 
+export const systemAPI = {
+  getDiskSpace: () => api.get('/system/disk-space'),
+};
+
+
 export default api;

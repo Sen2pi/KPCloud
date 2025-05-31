@@ -10,6 +10,9 @@ const fileRoutes = require('./src/routes/files');
 const userRoutes = require('./src/routes/users');
 const folderRoutes = require('./src/routes/folders');
 const trashRoutes = require('./src/routes/trash'); // NOVA ROTA
+// Adicionar esta linha com as outras rotas
+const systemRoutes = require('./src/routes/system');
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -46,7 +49,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/folders', folderRoutes);
-app.use('/api/trash', trashRoutes); // NOVA ROTA
+app.use('/api/trash', trashRoutes); 
+app.use('/api/system', systemRoutes);
+
+
 
 // Servir ficheiros estáticos
 app.use('/uploads', express.static('uploads'));

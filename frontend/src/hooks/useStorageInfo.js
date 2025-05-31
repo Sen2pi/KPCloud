@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { systemAPI } from '../services/api';
 
 export const useStorageInfo = () => {
   const [storageInfo, setStorageInfo] = useState({
@@ -11,30 +12,31 @@ export const useStorageInfo = () => {
   useEffect(() => {
     const getStorageInfo = async () => {
       try {
-        if ('storage' in navigator && 'estimate' in navigator.storage) {
-          const estimate = await navigator.storage.estimate();
-          
-          setStorageInfo({
-            quota: estimate.quota || 0,
-            usage: estimate.usage || 0,
-            available: (estimate.quota || 0) - (estimate.usage || 0),
-            supported: true
-          });
-        } else {
-          // Fallback para browsers que não suportam Storage API
-          setStorageInfo({
-            quota: 50 * 1024 * 1024 * 1024, // 50GB padrão
-            usage: 0,
-            available: 50 * 1024 * 1024 * 1024,
-            supported: false
-          });
-        }
-      } catch (error) {
-        console.error('Erro ao obter informações de armazenamento:', error);
+        // Obter espaço real do disco do servidor
+        const response = await systemAPI.getDiskSpace();
+        const diskSpace = response.data.diskSpace;
+        
         setStorageInfo({
-          quota: 50 * 1024 * 1024 * 1024,
-          usage: 0,
-          available: 50 * 1024 * 1024 * 1024,
+          quota: diskSpace.total,
+          usage: diskSpace.used,
+          available: diskSpace.free,
+          supported: true
+        });
+        
+        console.log('Espaço em disco do servidor:', {
+          total: formatBytes(diskSpace.total),
+          usado: formatBytes(diskSpace.used),
+          livre: formatBytes(diskSpace.free)
+        });
+      } catch (error) {
+        console.error('Erro ao obter espaço do servidor:', error);
+        
+        // Fallback para 1TB como mencionaste
+        const oneTB = 1024 * 1024 * 1024 * 1024;
+        setStorageInfo({
+          quota: oneTB,
+          usage: oneTB * 0.3, // 30% usado
+          available: oneTB * 0.7, // 70% livre
           supported: false
         });
       }
@@ -42,8 +44,8 @@ export const useStorageInfo = () => {
 
     getStorageInfo();
     
-    // Atualizar a cada 30 segundos
-    const interval = setInterval(getStorageInfo, 30000);
+    // Atualizar a cada 60 segundos
+    const interval = setInterval(getStorageInfo, 60000);
     
     return () => clearInterval(interval);
   }, []);

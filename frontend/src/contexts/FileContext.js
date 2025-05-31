@@ -124,12 +124,6 @@ export const FileProvider = ({ children }) => {
   const [state, dispatch] = useReducer(fileReducer, initialState);
 
   useEffect(() => {
-    // Carregar itens do lixo do localStorage
-    const savedTrash = JSON.parse(
-      localStorage.getItem("kpcloud_trash") || "[]"
-    );
-    dispatch({ type: "SET_TRASHED_ITEMS", payload: savedTrash });
-
     // Configurar listeners do WebSocket
     socketService.on("file-uploaded", (data) => {
       dispatch({ type: "ADD_FILE", payload: data.file });
@@ -164,11 +158,6 @@ export const FileProvider = ({ children }) => {
       socketService.off("item-restored");
     };
   }, []);
-
-  // Salvar lixo no localStorage sempre que mudar
-  useEffect(() => {
-    localStorage.setItem("kpcloud_trash", JSON.stringify(state.trashedItems));
-  }, [state.trashedItems]);
 
   const loadFiles = async (folderId = null) => {
     try {
@@ -231,7 +220,62 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  // RESTAURAR DO LIXO
+  const loadTrash = async () => {
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+      console.log("A carregar lixo do backend...");
+      
+      const response = await fileAPI.getTrash();
+      console.log("Resposta do lixo:", response.data);
+      
+      dispatch({
+        type: "SET_TRASHED_ITEMS",
+        payload: response.data.trashedItems || [],
+      });
+    } catch (error) {
+      console.error("Erro ao carregar lixo:", error);
+      toast.error("Erro ao carregar lixo");
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  };
+
+  const moveToTrash = async (item, itemType) => {
+    try {
+      console.log("=== MOVE TO TRASH DEBUG ===");
+      console.log("Item:", item);
+      console.log("Item Type:", itemType);
+      console.log("Item ID:", item._id);
+
+      if (itemType === "file") {
+        console.log("Chamando fileAPI.moveToTrash...");
+        const response = await fileAPI.moveToTrash(item._id);
+        console.log("Resposta:", response);
+      } else {
+        console.log("Chamando folderAPI.moveToTrash...");
+        const response = await folderAPI.moveToTrash(item._id);
+        console.log("Resposta:", response);
+      }
+
+      // Remover da lista atual
+      dispatch({ type: "MOVE_TO_TRASH", payload: { itemType, item } });
+      
+      // Recarregar lixo para mostrar o item
+      await loadTrash();
+      
+      toast.success(
+        `${itemType === "file" ? "Ficheiro" : "Pasta"} movido para o lixo`
+      );
+    } catch (error) {
+      console.error("=== ERRO MOVE TO TRASH ===");
+      console.error("Error:", error);
+      console.error("Response:", error.response?.data);
+      toast.error(
+        `Erro ao mover ${itemType === "file" ? "ficheiro" : "pasta"} para o lixo: ${error.response?.data?.message || error.message}`
+      );
+    }
+  };
+
   const restoreFromTrash = async (item) => {
     try {
       if (item.type === "file") {
@@ -249,7 +293,6 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  // ELIMINAR PERMANENTEMENTE
   const deletePermanently = async (item) => {
     try {
       if (item.type === "file") {
@@ -267,7 +310,6 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  // ESVAZIAR LIXO
   const emptyTrash = async () => {
     try {
       await fileAPI.emptyTrash();
@@ -303,46 +345,6 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  const loadTrash = async () => {
-    try {
-      dispatch({ type: "SET_LOADING", payload: true });
-      console.log("A carregar lixo do backend...");
-
-      const response = await fileAPI.getTrash();
-      console.log("Resposta do lixo:", response.data);
-
-      dispatch({
-        type: "SET_TRASHED_ITEMS",
-        payload: response.data.trashedItems || [],
-      });
-    } catch (error) {
-      console.error("Erro ao carregar lixo:", error);
-      toast.error("Erro ao carregar lixo");
-    } finally {
-      dispatch({ type: "SET_LOADING", payload: false });
-    }
-  };
-
-  // Atualizar as funções:
-  const moveToTrash = async (item, itemType) => {
-    try {
-      if (itemType === "file") {
-        await fileAPI.moveToTrash(item._id);
-      } else {
-        await folderAPI.moveToTrash(item._id);
-      }
-
-      dispatch({ type: "MOVE_TO_TRASH", payload: { itemType, item } });
-      toast.success(
-        `${itemType === "file" ? "Ficheiro" : "Pasta"} movido para o lixo`
-      );
-    } catch (error) {
-      toast.error(
-        `Erro ao mover ${itemType === "file" ? "ficheiro" : "pasta"} para o lixo`
-      );
-    }
-  };
-
   const value = {
     ...state,
     loadFiles,
@@ -358,7 +360,12 @@ export const FileProvider = ({ children }) => {
     dispatch,
   };
 
-  return <FileContext.Provider value={value}>{children}</FileContext.Provider>;
+  // CORRIGIR ESTA LINHA:
+  return (
+    <FileContext.Provider value={value}>
+      {children}
+    </FileContext.Provider>
+  );
 };
 
 export const useFiles = () => {

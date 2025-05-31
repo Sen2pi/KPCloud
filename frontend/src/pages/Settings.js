@@ -513,7 +513,7 @@ const Settings = () => {
       </Paper>
 
       {/* Dialog de Confirmação de Reset */}
-      <Dialog open={resetDialog} onClose={() => setResetDialog(false)}>
+      <Dialog open={resetDialog} onClose={() => setResetDialog(false)} closeAfterTransition={false}>
         <DialogTitle>Restaurar Configurações Padrão</DialogTitle>
         <DialogContent>
           <Typography>

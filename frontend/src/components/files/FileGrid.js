@@ -65,14 +65,19 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
     handleMenuClose();
   };
 
-  const confirmMoveToTrash = () => {
-    if (selectedItem) {
-      const itemType = selectedItem.originalName ? 'file' : 'folder';
-      moveToTrash(selectedItem, itemType);
-    }
-    setDeleteDialog(false);
-    setSelectedItem(null);
-  };
+// No FileGrid.js
+const confirmMoveToTrash = () => {
+  if (selectedItem) {
+    const itemType = selectedItem.originalName ? 'file' : 'folder';
+    console.log('=== CONFIRMING MOVE TO TRASH ===');
+    console.log('Selected item:', selectedItem);
+    console.log('Item type:', itemType);
+    moveToTrash(selectedItem, itemType);
+  }
+  setDeleteDialog(false);
+  setSelectedItem(null);
+};
+
 
   const getFileIcon = (mimetype) => {
     if (mimetype?.startsWith('image/')) return <Image />;
@@ -248,7 +253,7 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
       </Menu>
 
       {/* Dialog de Confirmação */}
-      <Dialog open={deleteDialog} onClose={() => setDeleteDialog(false)}>
+      <Dialog open={deleteDialog} onClose={() => setDeleteDialog(false)} closeAfterTransition={false}>
         <DialogTitle>
           Mover para o Lixo
         </DialogTitle>
