@@ -123,8 +123,6 @@ const fileReducer = (state, action) => {
 export const FileProvider = ({ children }) => {
   const [state, dispatch] = useReducer(fileReducer, initialState);
 
-  console.log('=== FileProvider renderizado ===');
-  console.log('Estado atual:', state);
   useEffect(() => {
     // Configurar listeners do WebSocket
     socketService.on("file-uploaded", (data) => {
@@ -161,55 +159,108 @@ export const FileProvider = ({ children }) => {
     };
   }, []);
 
-const loadFiles = async (folderId = null) => {
-  try {
-    dispatch({ type: "SET_LOADING", payload: true });
-    
-    console.log('=== LOAD FILES ===');
-    console.log('Folder ID:', folderId);
-    
-    const [filesResponse, foldersResponse] = await Promise.all([
-      fileAPI.getFiles({ folderId }),
-      folderAPI.getFolders({ parentId: folderId }) // CORREÇÃO: usar parentId
-    ]);
+  const loadFiles = async (folderId = null) => {
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+      
+      console.log('=== LOAD FILES ===');
+      console.log('Folder ID:', folderId);
+      
+      // Adicionar delay para evitar rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const [filesResponse, foldersResponse] = await Promise.all([
+        fileAPI.getFiles({ folderId }),
+        folderAPI.getFolders({ parent: folderId }) // CORRIGIR: usar 'parent' em vez de 'parentId'
+      ]);
 
-    console.log('Files response:', filesResponse.data);
-    console.log('Folders response:', foldersResponse.data);
+      console.log('Files response:', filesResponse.data);
+      console.log('Folders response:', foldersResponse.data);
 
-    dispatch({ type: "SET_FILES", payload: filesResponse.data.files || [] });
-    dispatch({ type: "SET_FOLDERS", payload: foldersResponse.data.folders || [] });
-    dispatch({ type: "SET_CURRENT_FOLDER", payload: folderId });
+      dispatch({ type: "SET_FILES", payload: filesResponse.data.files || [] });
+      dispatch({ type: "SET_FOLDERS", payload: foldersResponse.data.folders || [] });
+      dispatch({ type: "SET_CURRENT_FOLDER", payload: folderId });
 
-    socketService.joinFolder(folderId);
-  } catch (error) {
-    console.error('Erro ao carregar ficheiros:', error);
-    toast.error("Erro ao carregar ficheiros");
-  } finally {
-    dispatch({ type: "SET_LOADING", payload: false });
-  }
-};
+      socketService.joinFolder(folderId);
+    } catch (error) {
+      console.error('Erro ao carregar ficheiros:', error);
+      
+      if (error.response?.status === 429) {
+        toast.error("Muitas requisições. Aguarda um momento...");
+        // Tentar novamente após 2 segundos
+        setTimeout(() => loadFiles(folderId), 2000);
+      } else {
+        toast.error("Erro ao carregar ficheiros");
+      }
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  };
 
-
+  // CORRIGIR uploadFiles para retornar resultado
   const uploadFiles = async (files, folderId = null) => {
     try {
       dispatch({ type: "SET_UPLOADING", payload: true });
-
+      
+      console.log('=== UPLOAD FILES ===');
+      console.log('Files:', files.length);
+      console.log('Folder ID:', folderId);
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
       for (const file of files) {
-        const formData = new FormData();
-        formData.append("file", file);
-        if (folderId) formData.append("folderId", folderId);
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+          if (folderId) formData.append("folderId", folderId);
 
-        await fileAPI.upload(formData, (progressEvent) => {
-          const progress = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          dispatch({ type: "SET_UPLOAD_PROGRESS", payload: progress });
-        });
+          console.log('Uploading file:', file.name);
+          
+          const response = await fileAPI.upload(formData, (progressEvent) => {
+            const progress = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            dispatch({ type: "SET_UPLOAD_PROGRESS", payload: progress });
+          });
+          
+          if (response.data.success) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+          
+          // Delay entre uploads para evitar rate limiting
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+        } catch (fileError) {
+          console.error('Erro no upload do ficheiro:', file.name, fileError);
+          errorCount++;
+        }
       }
 
+      // Recarregar ficheiros apenas uma vez no final
       await loadFiles(folderId);
+
+      if (successCount > 0) {
+        toast.success(`${successCount} ficheiro${successCount > 1 ? 's' : ''} enviado${successCount > 1 ? 's' : ''} com sucesso!`);
+      }
+      
+      if (errorCount > 0) {
+        toast.error(`${errorCount} ficheiro${errorCount > 1 ? 's' : ''} falharam no upload`);
+      }
+
+      return { 
+        success: successCount > 0, 
+        successCount, 
+        errorCount,
+        message: `${successCount} ficheiros enviados com sucesso` 
+      };
+
     } catch (error) {
+      console.error('Erro geral no upload:', error);
       toast.error("Erro ao enviar ficheiros");
+      return { success: false, error: error.message };
     } finally {
       dispatch({ type: "SET_UPLOADING", payload: false });
       dispatch({ type: "SET_UPLOAD_PROGRESS", payload: 0 });
@@ -217,51 +268,47 @@ const loadFiles = async (folderId = null) => {
   };
 
   const createFolder = async (name, color = '#3498db', parent = null) => {
-  try {
-    console.log('=== CREATE FOLDER CONTEXT ===');
-    console.log('Name:', name);
-    console.log('Color:', color);
-    console.log('Parent:', parent);
+    try {
+      console.log('=== CREATE FOLDER CONTEXT ===');
+      console.log('Name:', name);
+      console.log('Color:', color);
+      console.log('Parent:', parent);
 
-    // Validar dados antes de enviar
-    if (!name || typeof name !== 'string') {
-      toast.error('Nome da pasta é obrigatório');
+      if (!name || typeof name !== 'string') {
+        toast.error('Nome da pasta é obrigatório');
+        return { success: false };
+      }
+
+      const folderData = {
+        name: name.trim(),
+        color: color || '#3498db',
+        parent: parent || null
+      };
+
+      console.log('Sending folder data:', folderData);
+
+      const response = await folderAPI.create(folderData);
+
+      if (response.data.success) {
+        toast.success('Pasta criada com sucesso!');
+        return { success: true, folder: response.data.folder };
+      } else {
+        toast.error(response.data.message || 'Erro ao criar pasta');
+        return { success: false };
+      }
+    } catch (error) {
+      console.error('Erro ao criar pasta:', error);
+      toast.error(error.response?.data?.message || 'Erro ao criar pasta');
       return { success: false };
     }
-
-    // Construir objeto de dados correto
-    const folderData = {
-      name: name.trim(),
-      color: color || '#3498db',
-      parent: parent || null
-    };
-
-    console.log('Sending folder data:', folderData);
-
-    const response = await folderAPI.create(folderData);
-
-    if (response.data.success) {
-      toast.success('Pasta criada com sucesso!');
-      return { success: true, folder: response.data.folder };
-    } else {
-      toast.error(response.data.message || 'Erro ao criar pasta');
-      return { success: false };
-    }
-  } catch (error) {
-    console.error('Erro ao criar pasta:', error);
-    toast.error(error.response?.data?.message || 'Erro ao criar pasta');
-    return { success: false };
-  }
-};
+  };
 
   const loadTrash = async () => {
     try {
       dispatch({ type: "SET_LOADING", payload: true });
       console.log("A carregar lixo do backend...");
-      
       const response = await fileAPI.getTrash();
       console.log("Resposta do lixo:", response.data);
-      
       dispatch({
         type: "SET_TRASHED_ITEMS",
         payload: response.data.trashedItems || [],
@@ -274,52 +321,41 @@ const loadFiles = async (folderId = null) => {
     }
   };
 
-const moveToTrash = async (item, itemType) => {
-  try {
-    console.log("=== MOVE TO TRASH DEBUG ===");
-    console.log("Item:", item);
-    console.log("Item Type:", itemType);
-    console.log("Item ID:", item._id);
+  const moveToTrash = async (item, itemType) => {
+    try {
+      console.log("=== MOVE TO TRASH DEBUG ===");
+      console.log("Item:", item);
+      console.log("Item Type:", itemType);
 
-    if (itemType === "file") {
-      console.log("Chamando fileAPI.moveToTrash...");
-      const response = await fileAPI.moveToTrash(item._id);
-      console.log("Resposta:", response);
-    } else {
-      console.log("Chamando folderAPI.moveToTrash...");
-      const response = await folderAPI.moveToTrash(item._id);
-      console.log("Resposta:", response);
-    }
+      if (itemType === "file") {
+        const response = await fileAPI.moveToTrash(item._id);
+        console.log("Resposta:", response);
+      } else {
+        const response = await folderAPI.moveToTrash(item._id);
+        console.log("Resposta:", response);
+      }
 
-    // Remover da lista atual
-    dispatch({ type: "MOVE_TO_TRASH", payload: { itemType, item } });
-    
-    // Recarregar lixo para mostrar o item
-    await loadTrash();
-    
-    toast.success(
-      `${itemType === "file" ? "Ficheiro" : "Pasta"} movido para o lixo`
-    );
-  } catch (error) {
-    console.error("=== ERRO MOVE TO TRASH ===");
-    console.error("Error:", error);
-    console.error("Response:", error.response?.data);
-    
-    // MELHORAR MENSAGEM DE ERRO ESPECÍFICA
-    if (error.response?.status === 400 && itemType === "folder") {
-      toast.error(
-        `Não é possível mover a pasta "${item.name}" para o lixo porque contém ficheiros. Elimine primeiro o conteúdo da pasta ou use a opção "Eliminar tudo".`,
-        {
-          duration: 6000, // Mostrar por mais tempo
-        }
+      dispatch({ type: "MOVE_TO_TRASH", payload: { itemType, item } });
+      await loadTrash();
+      toast.success(
+        `${itemType === "file" ? "Ficheiro" : "Pasta"} movido para o lixo`
       );
-    } else {
-      toast.error(
-        `Erro ao mover ${itemType === "file" ? "ficheiro" : "pasta"} para o lixo: ${error.response?.data?.message || error.message}`
-      );
+    } catch (error) {
+      console.error("=== ERRO MOVE TO TRASH ===");
+      console.error("Error:", error);
+      
+      if (error.response?.status === 400 && itemType === "folder") {
+        toast.error(
+          `Não é possível mover a pasta "${item.name}" para o lixo porque contém ficheiros.`,
+          { duration: 6000 }
+        );
+      } else {
+        toast.error(
+          `Erro ao mover ${itemType === "file" ? "ficheiro" : "pasta"} para o lixo: ${error.response?.data?.message || error.message}`
+        );
+      }
     }
-  }
-};
+  };
 
   const restoreFromTrash = async (item) => {
     try {
@@ -365,118 +401,108 @@ const moveToTrash = async (item, itemType) => {
     }
   };
 
-const downloadFile = async (file) => {
-  try {
-    console.log('=== DOWNLOAD FILE FRONTEND ===');
-    console.log('File object:', file);
-    console.log('File ID:', file._id);
-    
-    if (!file._id) {
-      toast.error('ID do ficheiro não encontrado');
-      return;
-    }
+  const downloadFile = async (file) => {
+    try {
+      console.log('=== DOWNLOAD FILE FRONTEND ===');
+      console.log('File object:', file);
 
-    // Fazer pedido para download
-    const response = await fileAPI.download(file._id);
-    
-    console.log('Response headers:', response.headers);
-    console.log('Response data type:', typeof response.data);
-    
-    // Criar blob do response
-    const blob = new Blob([response.data], { 
-      type: response.headers['content-type'] || file.mimetype 
-    });
-    
-    // Criar URL temporário
-    const url = window.URL.createObjectURL(blob);
-    
-    // Criar elemento de download
-    const link = document.createElement('a');
-    link.href = url;
-    
-    // Obter nome do ficheiro dos headers ou usar o original
-    let filename = file.originalName;
-    const contentDisposition = response.headers['content-disposition'];
-    if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-      if (filenameMatch) {
-        filename = filenameMatch[1].replace(/['"]/g, '');
-        filename = decodeURIComponent(filename);
+      if (!file._id) {
+        toast.error('ID do ficheiro não encontrado');
+        return;
+      }
+
+      const response = await fileAPI.download(file._id);
+      
+      const blob = new Blob([response.data], {
+        type: response.headers['content-type'] || file.mimetype
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      let filename = file.originalName;
+      const contentDisposition = response.headers['content-disposition'];
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch) {
+          filename = filenameMatch[1].replace(/['"]/g, '');
+          filename = decodeURIComponent(filename);
+        }
+      }
+
+      link.setAttribute('download', filename);
+      link.style.display = 'none';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      window.URL.revokeObjectURL(url);
+      toast.success('Download iniciado!');
+      
+    } catch (error) {
+      console.error('=== ERRO DOWNLOAD FRONTEND ===');
+      console.error('Error:', error);
+      
+      if (error.response?.status === 404) {
+        toast.error('Ficheiro não encontrado');
+      } else if (error.response?.status === 403) {
+        toast.error('Não tens permissão para fazer download deste ficheiro');
+      } else {
+        toast.error('Erro ao fazer download do ficheiro');
       }
     }
-    
-    link.setAttribute('download', filename);
-    link.style.display = 'none';
-    
-    // Adicionar ao DOM, clicar e remover
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Limpar URL temporário
-    window.URL.revokeObjectURL(url);
-    
-    toast.success('Download iniciado!');
-    console.log('Download concluído');
-    
-  } catch (error) {
-    console.error('=== ERRO DOWNLOAD FRONTEND ===');
-    console.error('Error:', error);
-    console.error('Response:', error.response?.data);
-    
-    if (error.response?.status === 404) {
-      toast.error('Ficheiro não encontrado');
-    } else if (error.response?.status === 403) {
-      toast.error('Não tens permissão para fazer download deste ficheiro');
-    } else {
-      toast.error('Erro ao fazer download do ficheiro');
-    }
-  }
-};
+  };
 
-const moveItem = async (itemId, itemType, targetFolderId) => {
-  try {
-    console.log('=== MOVE ITEM ===');
-    console.log('Item ID:', itemId);
-    console.log('Item Type:', itemType);
-    console.log('Target Folder ID:', targetFolderId);
+  // CORRIGIR moveItem para usar endpoints corretos
+  const moveItem = async (itemId, itemType, targetFolderId) => {
+    try {
+      console.log('=== MOVE ITEM ===');
+      console.log('Item ID:', itemId);
+      console.log('Item Type:', itemType);
+      console.log('Target Folder ID:', targetFolderId);
 
-    const response = itemType === 'file' 
-      ? await fileAPI.moveToFolder(itemId, targetFolderId)
-      : await folderAPI.moveToFolder(itemId, targetFolderId);
-
-    if (response.data.success) {
-      toast.success(`${itemType === 'file' ? 'Ficheiro' : 'Pasta'} movido com sucesso!`);
+      let response;
       
-      // Recarregar ficheiros da pasta atual
+      if (itemType === 'file') {
+        // CORRIGIR: usar folderId em vez de targetFolderId para ficheiros
+        response = await fileAPI.moveFile(itemId, targetFolderId);
+      } else {
+        // CORRIGIR: usar targetFolderId para pastas
+        response = await folderAPI.moveToFolder(itemId, targetFolderId);
+      }
+
+      if (response.data.success) {
+        toast.success(`${itemType === 'file' ? 'Ficheiro' : 'Pasta'} movido com sucesso!`);
+        
+        // Recarregar ficheiros da pasta atual
+        await loadFiles(state.currentFolder);
+        
+        return { success: true };
+      } else {
+        return { success: false, message: response.data.message };
+      }
+    } catch (error) {
+      console.error('Erro ao mover item:', error);
+      toast.error('Erro ao mover item');
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Erro ao mover item'
+      };
+    }
+  };
+
+  const shareFile = async (fileId, userEmail, permissions = 'read') => {
+    try {
+      await fileAPI.share(fileId, { userEmail, permissions });
+      toast.success('Ficheiro partilhado com sucesso!');
       await loadFiles(state.currentFolder);
-      
-      return { success: true };
-    } else {
-      return { success: false, message: response.data.message };
+    } catch (error) {
+      toast.error('Erro ao partilhar ficheiro');
     }
-  } catch (error) {
-    console.error('Erro ao mover item:', error);
-    toast.error('Erro ao mover item');
-    return { 
-      success: false, 
-      message: error.response?.data?.message || 'Erro ao mover item' 
-    };
-  }
-};
+  };
 
-const shareFile = async (fileId, userEmail, permissions = 'read') => {
-  try {
-    await fileAPI.share(fileId, { userEmail, permissions });
-    toast.success('Ficheiro partilhado com sucesso!');
-    
-    // Recarregar ficheiros para mostrar ícone de partilha
-    await loadFiles(state.currentFolder);
-    
-  } catch (error) {
-    toast.error('Erro ao partilhar ficheiro');
-  }
-};
   const value = {
     ...state,
     loadFiles,
@@ -493,7 +519,6 @@ const shareFile = async (fileId, userEmail, permissions = 'read') => {
     dispatch,
   };
 
-  // CORRIGIR ESTA LINHA:
   return (
     <FileContext.Provider value={value}>
       {children}

@@ -167,10 +167,20 @@ exports.moveFile = async (req, res) => {
     const { fileId } = req.params;
     const { folderId } = req.body;
 
-    console.log('=== MOVE FILE ===');
+    console.log('=== MOVE FILE CONTROLLER ===');
     console.log('File ID:', fileId);
     console.log('Target Folder ID:', folderId);
     console.log('User ID:', req.user.userId);
+    console.log('Request body:', req.body);
+
+    // Validar se fileId é um ObjectId válido
+    if (!fileId || !fileId.match(/^[0-9a-fA-F]{24}$/)) {
+      console.log('File ID inválido:', fileId);
+      return res.status(400).json({
+        success: false,
+        message: 'ID de ficheiro inválido'
+      });
+    }
 
     // Verificar se o ficheiro existe e se o utilizador é o proprietário
     const file = await File.findOne({
@@ -179,15 +189,33 @@ exports.moveFile = async (req, res) => {
       isDeleted: false
     });
 
+    console.log('Ficheiro encontrado:', file ? 'Sim' : 'Não');
+    if (file) {
+      console.log('- Nome:', file.originalName);
+      console.log('- Pasta atual:', file.folder);
+    }
+
     if (!file) {
+      console.log('Ficheiro não encontrado ou não pertence ao utilizador');
       return res.status(404).json({
         success: false,
         message: 'Ficheiro não encontrado'
       });
     }
 
-    // Se folderId for null, está a mover para a raiz
-    if (folderId) {
+    // Se folderId for null ou undefined, está a mover para a raiz
+    if (folderId && folderId !== 'null' && folderId !== 'undefined') {
+      console.log('Verificando pasta de destino...');
+      
+      // Validar se folderId é um ObjectId válido
+      if (!folderId.match(/^[0-9a-fA-F]{24}$/)) {
+        console.log('Folder ID inválido:', folderId);
+        return res.status(400).json({
+          success: false,
+          message: 'ID de pasta inválido'
+        });
+      }
+
       // Verificar se a pasta de destino existe e pertence ao utilizador
       const targetFolder = await Folder.findOne({
         _id: folderId,
@@ -195,27 +223,65 @@ exports.moveFile = async (req, res) => {
         isDeleted: false
       });
 
+      console.log('Pasta de destino encontrada:', targetFolder ? 'Sim' : 'Não');
+      if (targetFolder) {
+        console.log('- Nome da pasta:', targetFolder.name);
+        console.log('- Path da pasta:', targetFolder.path);
+      }
+
       if (!targetFolder) {
+        console.log('Pasta de destino não encontrada');
+        
+        // Debug: Verificar se a pasta existe mas com outro owner
+        const folderWithDifferentOwner = await Folder.findById(folderId);
+        if (folderWithDifferentOwner) {
+          console.log('Pasta existe mas pertence a outro utilizador:', folderWithDifferentOwner.owner);
+        }
+        
         return res.status(404).json({
           success: false,
-          message: 'Pasta de destino não encontrada'
+          message: 'Pasta de destino não encontrada ou não tens permissão para aceder'
         });
       }
+
+      // Verificar se não está a tentar mover para a mesma pasta
+      if (file.folder && file.folder.toString() === folderId) {
+        console.log('Tentativa de mover para a mesma pasta');
+        return res.status(400).json({
+          success: false,
+          message: 'O ficheiro já está nesta pasta'
+        });
+      }
+    } else {
+      console.log('Movendo ficheiro para a raiz (sem pasta)');
     }
 
+    // Guardar pasta antiga para logs
+    const oldFolder = file.folder;
+
     // Atualizar a pasta do ficheiro
-    file.folder = folderId || null;
+    file.folder = (folderId && folderId !== 'null' && folderId !== 'undefined') ? folderId : null;
     await file.save();
 
     console.log('Ficheiro movido com sucesso');
+    console.log('- Pasta antiga:', oldFolder);
+    console.log('- Pasta nova:', file.folder);
 
     res.json({
       success: true,
       message: 'Ficheiro movido com sucesso',
-      file
+      file: {
+        _id: file._id,
+        originalName: file.originalName,
+        folder: file.folder
+      }
     });
   } catch (error) {
-    console.error('Erro ao mover ficheiro:', error);
+    console.error('=== ERRO MOVE FILE ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
     res.status(500).json({
       success: false,
       message: 'Erro ao mover ficheiro',
@@ -223,7 +289,6 @@ exports.moveFile = async (req, res) => {
     });
   }
 };
-
 exports.getFiles = async (req, res) => {
   try {
     const { folderId, page = 1, limit = 20, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;

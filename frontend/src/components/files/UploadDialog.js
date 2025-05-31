@@ -27,24 +27,21 @@ import {
 import { useFiles } from '../../contexts/FileContext';
 
 const UploadDialog = ({ open, onClose, onUploadComplete, currentFolder }) => {
-  const { uploadFiles } = useFiles();
+  const { uploadFiles, uploading, uploadProgress } = useFiles();
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({});
   const [uploadStatus, setUploadStatus] = useState({});
+  const [uploadResult, setUploadResult] = useState(null);
 
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
     setSelectedFiles(files);
+    setUploadResult(null);
     
-    // Resetar progresso e status
-    const initialProgress = {};
+    // Resetar status
     const initialStatus = {};
     files.forEach(file => {
-      initialProgress[file.name] = 0;
       initialStatus[file.name] = 'pending';
     });
-    setUploadProgress(initialProgress);
     setUploadStatus(initialStatus);
   };
 
@@ -55,32 +52,31 @@ const UploadDialog = ({ open, onClose, onUploadComplete, currentFolder }) => {
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;
 
-    setUploading(true);
-
     try {
-      // Simular progresso individual para cada ficheiro
-      for (const file of selectedFiles) {
-        setUploadStatus(prev => ({ ...prev, [file.name]: 'uploading' }));
-        
-        // Simular progresso
-        for (let progress = 0; progress <= 100; progress += 10) {
-          setUploadProgress(prev => ({ ...prev, [file.name]: progress }));
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
+      // Marcar todos como uploading
+      const uploadingStatus = {};
+      selectedFiles.forEach(file => {
+        uploadingStatus[file.name] = 'uploading';
+      });
+      setUploadStatus(uploadingStatus);
 
-      // Fazer upload real
+      console.log('Starting upload...', selectedFiles.length, 'files');
+      
+      // CORRIGIR: Aguardar resultado do upload
       const result = await uploadFiles(selectedFiles, currentFolder);
       
-      if (result.success) {
-        // Marcar todos como sucesso
+      console.log('Upload result:', result);
+      setUploadResult(result);
+      
+      if (result && result.success) {
+        // Marcar como sucesso
         const successStatus = {};
         selectedFiles.forEach(file => {
           successStatus[file.name] = 'success';
         });
         setUploadStatus(successStatus);
         
-        // Aguardar um pouco para mostrar sucesso e fechar
+        // Aguardar um pouco e fechar
         setTimeout(() => {
           handleClose();
           if (onUploadComplete) {
@@ -97,21 +93,22 @@ const UploadDialog = ({ open, onClose, onUploadComplete, currentFolder }) => {
       }
     } catch (error) {
       console.error('Erro no upload:', error);
+      
+      // Marcar todos como erro
       const errorStatus = {};
       selectedFiles.forEach(file => {
         errorStatus[file.name] = 'error';
       });
       setUploadStatus(errorStatus);
-    } finally {
-      setUploading(false);
+      setUploadResult({ success: false, error: error.message });
     }
   };
 
   const handleClose = () => {
     if (!uploading) {
       setSelectedFiles([]);
-      setUploadProgress({});
       setUploadStatus({});
+      setUploadResult(null);
       onClose();
     }
   };
@@ -216,7 +213,7 @@ const UploadDialog = ({ open, onClose, onUploadComplete, currentFolder }) => {
                         {uploadStatus[file.name] === 'uploading' && (
                           <LinearProgress
                             variant="determinate"
-                            value={uploadProgress[file.name] || 0}
+                            value={uploadProgress || 0}
                             sx={{ mt: 1 }}
                           />
                         )}
@@ -255,17 +252,19 @@ const UploadDialog = ({ open, onClose, onUploadComplete, currentFolder }) => {
               ))}
             </List>
 
-            {/* Alertas */}
-            {errorFiles > 0 && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                {errorFiles} ficheiro{errorFiles !== 1 ? 's' : ''} falharam no upload
-              </Alert>
-            )}
-            
-            {successFiles === totalFiles && totalFiles > 0 && (
-              <Alert severity="success" sx={{ mt: 2 }}>
-                Todos os ficheiros foram enviados com sucesso!
-              </Alert>
+            {/* Resultados do Upload */}
+            {uploadResult && (
+              <Box sx={{ mt: 2 }}>
+                {uploadResult.success ? (
+                  <Alert severity="success">
+                    {uploadResult.successCount} ficheiro{uploadResult.successCount !== 1 ? 's' : ''} enviado{uploadResult.successCount !== 1 ? 's' : ''} com sucesso!
+                  </Alert>
+                ) : (
+                  <Alert severity="error">
+                    Erro no upload: {uploadResult.error || 'Erro desconhecido'}
+                  </Alert>
+                )}
+              </Box>
             )}
           </Box>
         )}
@@ -299,7 +298,7 @@ const UploadDialog = ({ open, onClose, onUploadComplete, currentFolder }) => {
             disabled={uploading || selectedFiles.length === 0}
             startIcon={uploading ? null : <CloudUpload />}
           >
-            {uploading ? `Enviando... (${successFiles}/${totalFiles})` : `Enviar ${selectedFiles.length} ficheiro${selectedFiles.length !== 1 ? 's' : ''}`}
+            {uploading ? `Enviando... (${Math.round(uploadProgress || 0)}%)` : `Enviar ${selectedFiles.length} ficheiro${selectedFiles.length !== 1 ? 's' : ''}`}
           </Button>
         )}
       </DialogActions>

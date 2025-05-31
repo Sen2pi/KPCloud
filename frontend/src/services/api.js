@@ -91,32 +91,32 @@ export const shareAPI = {
 };
 
 export const fileAPI = {
-  upload: (formData, onProgress) =>
-    api.post("/files/upload", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-      onUploadProgress: onProgress,
-    }),
-  getFiles: (params) => api.get("/files", { params }),
-  moveToFolder: (folderId, targetFolderId) => api.put(`/folders/${folderId}/move`, { targetFolderId }),
-  download: (fileId) => {
-    console.log("API download called with fileId:", fileId);
-    return api.get(`/files/download/${fileId}`, {
-      responseType: "blob", // IMPORTANTE: Definir como blob
-    });
-    
-  },
-
+  upload: (formData, onProgress) => api.post('/files/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: onProgress,
+  }),
+  getFiles: (params) => api.get('/files', { params }),
+  download: (fileId) => api.get(`/files/download/${fileId}`, { responseType: 'blob' }),
+  moveFile: (fileId, folderId) => api.put(`/files/${fileId}/move`, { folderId }), // ADICIONAR ESTA FUNÇÃO
   moveToTrash: (fileId) => api.post(`/trash/files/${fileId}`),
   restoreFromTrash: (fileId) => api.post(`/trash/files/${fileId}/restore`),
   deletePermanently: (fileId) => api.delete(`/trash/files/${fileId}/permanent`),
-
   share: (fileId, data) => api.post(`/files/${fileId}/share`, data),
-  generatePublicLink: (fileId) => api.post(`/files/${fileId}/public-link`),
-  getSharedFiles: (params) => api.get("/users/shared-files", { params }),
-
-  getTrash: (params) => api.get("/trash", { params }),
-  emptyTrash: () => api.delete("/trash/empty"),
+  getTrash: () => api.get('/trash'),
+  emptyTrash: () => api.delete('/trash/empty'),
 };
+
+export const folderAPI = {
+  create: (data) => api.post('/folders', data),
+  getFolders: (params) => api.get('/folders', { params }), // CORRIGIR: usar 'params' diretamente
+  update: (folderId, data) => api.put(`/folders/${folderId}`, data),
+  moveToFolder: (folderId, targetFolderId) => api.put(`/folders/${folderId}/move`, { targetFolderId }),
+  moveToTrash: (folderId) => api.post(`/trash/folders/${folderId}`),
+  restoreFromTrash: (folderId) => api.post(`/trash/folders/${folderId}/restore`),
+  deletePermanently: (folderId) => api.delete(`/trash/folders/${folderId}/permanent`),
+  share: (folderId, data) => api.post(`/folders/${folderId}/share`, data),
+};
+
 
 // Verificar se esta secção existe no ficheiro
 export const forumAPI = {
@@ -150,24 +150,6 @@ export const forumAPI = {
   },
 };
 
-export const folderAPI = {
-  create: (data) => {
-    console.log('FolderAPI create called with:', data);
-    return api.post('/folders', data);
-  },
-  getFolders: (params) => {
-    console.log('FolderAPI getFolders called with:', params);
-    // CORREÇÃO: Usar 'parent' em vez de 'parentId'
-    const queryParams = params?.parentId !== undefined ? { parent: params.parentId } : {};
-    return api.get('/folders', { params: queryParams });
-  },
-  update: (folderId, data) => api.put(`/folders/${folderId}`, data),
-  moveToFolder: (folderId, targetFolderId) => api.put(`/folders/${folderId}/move`, { targetFolderId }),
-  moveToTrash: (folderId) => api.post(`/trash/folders/${folderId}`),
-  restoreFromTrash: (folderId) => api.post(`/trash/folders/${folderId}/restore`),
-  deletePermanently: (folderId) => api.delete(`/trash/folders/${folderId}/permanent`),
-  share: (folderId, data) => api.post(`/folders/${folderId}/share`, data),
-};
 
 export const userAPI = {
   getStorageStats: () => api.get("/users/storage-stats"),
