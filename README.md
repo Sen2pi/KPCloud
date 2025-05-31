@@ -558,14 +558,10 @@ copies of the Software...
 
 ### Get Help & Stay Connected
 
-[
-[
-[
+
 
 ### Support the Project
 
-[
-[
 
 </div>
 
