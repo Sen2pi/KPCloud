@@ -69,6 +69,18 @@ export const authAPI = {
   disable2FA: (password) => api.post('/users/2fa/disable', { password }),
 };
 
+export const shareAPI = {
+  searchUsers: (searchTerm) => api.get('/share/search-users', { params: { q: searchTerm } }),
+  shareFile: (fileId, data) => api.post(`/share/files/${fileId}`, data),
+  shareFolder: (folderId, data) => api.post(`/share/folders/${folderId}`, data),
+  getFileShares: (fileId) => api.get(`/share/files/${fileId}`),
+  getFolderShares: (folderId) => api.get(`/share/folders/${folderId}`),
+  updatePermission: (shareId, data) => api.put(`/share/${shareId}/permission`, data),
+  removeShare: (shareId) => api.delete(`/share/${shareId}`),
+  getMyShares: (params) => api.get('/share/my-shares', { params }),
+  getSharedWithMe: (params) => api.get('/share/shared-with-me', { params }),
+};
+
 export const fileAPI = {
   upload: (formData, onProgress) => api.post('/files/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -88,6 +100,39 @@ export const fileAPI = {
   getTrash: (params) => api.get('/trash', { params }),
   emptyTrash: () => api.delete('/trash/empty'),
 };
+
+// Verificar se esta secção existe no ficheiro
+export const forumAPI = {
+  getPosts: (params) => {
+    console.log('ForumAPI getPosts params:', params);
+    return api.get('/forum/posts', { params });
+  },
+  getPost: (postId) => {
+    console.log('ForumAPI getPost postId:', postId);
+    return api.get(`/forum/posts/${postId}`);
+  },
+  createPost: (data) => {
+    console.log('ForumAPI createPost data:', data);
+    return api.post('/forum/posts', data);
+  },
+  addReply: (postId, data) => {
+    console.log('ForumAPI addReply:', { postId, data });
+    return api.post(`/forum/posts/${postId}/replies`, data);
+  },
+  toggleLike: (postId) => {
+    console.log('ForumAPI toggleLike postId:', postId);
+    return api.post(`/forum/posts/${postId}/like`);
+  },
+  deletePost: (postId) => {
+    console.log('ForumAPI deletePost postId:', postId);
+    return api.delete(`/forum/posts/${postId}`);
+  },
+  getStats: () => {
+    console.log('ForumAPI getStats');
+    return api.get('/forum/stats');
+  },
+};
+
 
 export const folderAPI = {
   create: (data) => api.post('/folders', data),

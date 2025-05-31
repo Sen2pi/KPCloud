@@ -97,28 +97,12 @@ const Header = () => {
             src="/logo.png"
             alt="KPCloud Logo"
             style={{
-              height: 32,
+              height: 65,
               width: "auto",
-              marginRight: 12,
               filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))",
             }}
           />
-          <Typography
-            variant="h6"
-            component="div"
-            fontWeight="bold"
-            sx={{
-              background: (theme) =>
-                theme.palette.mode === "dark"
-                  ? "linear-gradient(45deg, #3b82f6, #8b5cf6)"
-                  : "linear-gradient(45deg, #2563eb, #7c3aed)",
-              backgroundClip: "text",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            KPCloud
-          </Typography>
+ 
         </Box>
 
         <Box sx={{ flexGrow: 1 }} />

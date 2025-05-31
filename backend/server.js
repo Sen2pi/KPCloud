@@ -11,7 +11,8 @@ const userRoutes = require('./src/routes/users');
 const folderRoutes = require('./src/routes/folders');
 const trashRoutes = require('./src/routes/trash');
 const systemRoutes = require('./src/routes/system');
-
+const forumRoutes = require('./src/routes/forum');
+const shareRoutes = require('./src/routes/share');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -77,6 +78,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/folders', folderRoutes);
 app.use('/api/trash', trashRoutes);
 app.use('/api/system', systemRoutes);
+app.use('/api/forum', forumRoutes);
+app.use('/api/share', shareRoutes);
 
 // Servir ficheiros estáticos
 app.use('/uploads/profiles', express.static(path.join(__dirname, 'uploads/profiles'))); // AGORA DEVE FUNCIONAR

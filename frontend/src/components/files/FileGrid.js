@@ -37,6 +37,7 @@ import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { useFiles } from "../../contexts/FileContext";
 import FavoriteButton from "../common/FavoriteButton";
+import ShareDialog from "./ShareDialog"; // ADICIONAR IMPORT
 
 const FileGrid = ({ files, folders, onFolderClick }) => {
   const { downloadFile, moveToTrash } = useFiles();
@@ -47,10 +48,18 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
   const [folderDeleteDialog, setFolderDeleteDialog] = useState(false);
   const [folderDeleteInfo, setFolderDeleteInfo] = useState(null);
   const [folderToDelete, setFolderToDelete] = useState(null);
+  const [shareDialog, setShareDialog] = useState(false);
+  const [itemToShare, setItemToShare] = useState(null);
 
   console.log("=== FileGrid renderizado ===");
   console.log("moveToTrash function:", moveToTrash);
   console.log("downloadFile function:", downloadFile);
+  const handleShare = () => {
+    console.log("=== handleShare chamado ===", selectedItem);
+    setItemToShare(selectedItem);
+    setShareDialog(true);
+    handleMenuClose();
+  };
 
   const handleMenuOpen = (event, item) => {
     event.stopPropagation();
@@ -316,7 +325,9 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
             Download
           </MenuItem>
         )}
-        <MenuItem onClick={handleMenuClose}>
+        <MenuItem onClick={handleShare}>
+          {" "}
+          {/* ATUALIZAR ESTA LINHA */}
           <Share sx={{ mr: 1 }} />
           Partilhar
         </MenuItem>
@@ -399,6 +410,15 @@ const FileGrid = ({ files, folders, onFolderClick }) => {
           </Button>
         </DialogActions>
       </Dialog>
+      <ShareDialog
+        open={shareDialog}
+        onClose={() => {
+          setShareDialog(false);
+          setItemToShare(null);
+        }}
+        item={itemToShare}
+        itemType={itemToShare?.originalName ? "file" : "folder"}
+      />
     </>
   );
 };

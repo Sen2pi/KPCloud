@@ -14,10 +14,10 @@ import {
   Badge,
 } from '@mui/material';
 import {
-  Folder,
   InsertDriveFile,
   Share,
   Star,
+  Group,
   Delete,
   Storage,
 } from '@mui/icons-material';
@@ -37,6 +37,7 @@ const Sidebar = () => {
 
   const menuItems = [
     { text: 'Os Meus Ficheiros', icon: <InsertDriveFile />, path: '/dashboard' },
+      { text: 'Fórum', icon: <Group />, path: '/forum' }, 
     { text: 'Partilhados Comigo', icon: <Share />, path: '/shared' },
     { 
       text: 'Favoritos', 

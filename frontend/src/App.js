@@ -1,27 +1,34 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 
 // IMPORTANTE: ThemeProvider deve ser o primeiro provider
-import { ThemeProvider } from './contexts/ThemeContext';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { FileProvider } from './contexts/FileContext';
-import { SettingsProvider } from './contexts/SettingsContext';
+import { ThemeProvider } from "./contexts/ThemeContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { FileProvider } from "./contexts/FileContext";
+import { SettingsProvider } from "./contexts/SettingsContext";
 
-import Header from './components/layout/Header';
-import Sidebar from './components/layout/Sidebar';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import SharedFiles from './pages/SharedFiles';
-import Favorites from './pages/Favorites';
-import Trash from './pages/Trash';
-import Profile from './pages/Profile';
-import Settings from './pages/Settings';
-import NotFound from './pages/NotFound';
-import LoadingSpinner from './components/common/LoadingSpinner';
-import { useApiConfig } from './hooks/useApiConfig';
-import { Box } from '@mui/material';
+import Header from "./components/layout/Header";
+import Sidebar from "./components/layout/Sidebar";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+import SharedFiles from "./pages/SharedFiles";
+import Favorites from "./pages/Favorites";
+import Trash from "./pages/Trash";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
+import Forum from "./pages/Forum";
+import NotFound from "./pages/NotFound";
+import LoadingSpinner from "./components/common/LoadingSpinner";
+import { useApiConfig } from "./hooks/useApiConfig";
+import { Box } from "@mui/material";
+import ForumPost from './pages/ForumPost'; // ADICIONAR 
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -45,15 +52,15 @@ const PublicRoute = ({ children }) => {
 
 const Layout = ({ children }) => {
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: "flex", minHeight: "100vh" }}>
       <Header />
       <Sidebar />
-      <Box 
-        component="main" 
-        sx={{ 
-          flexGrow: 1, 
-          bgcolor: 'background.default',
-          transition: 'all 0.3s ease',
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          bgcolor: "background.default",
+          transition: "all 0.3s ease",
         }}
       >
         {children}
@@ -148,6 +155,26 @@ const AppContent = () => {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/forum"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Forum />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/forum/post/:postId" // ADICIONAR ESTA ROTA
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ForumPost />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
             <Route path="/404" element={<NotFound />} />
             <Route path="/" element={<Navigate to="/dashboard" />} />
             <Route path="*" element={<Navigate to="/404" />} />
@@ -158,10 +185,10 @@ const AppContent = () => {
           toastOptions={{
             duration: 4000,
             style: {
-              borderRadius: '12px',
-              background: 'var(--toast-bg)',
-              color: 'var(--toast-color)',
-              border: '1px solid var(--toast-border)',
+              borderRadius: "12px",
+              background: "var(--toast-bg)",
+              color: "var(--toast-color)",
+              border: "1px solid var(--toast-border)",
             },
           }}
         />

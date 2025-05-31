@@ -25,14 +25,10 @@ const NotFound = () => {
             src="/logo.png" 
             alt="KPCloud Logo" 
             style={{ 
-              height: 50, 
+              height: 600, 
               width: 'auto', 
-              marginRight: 12 
             }} 
           />
-          <Typography variant="h4" color="primary" fontWeight="bold">
-            KPCloud
-          </Typography>
         </Box>
 
         <Typography variant="h1" sx={{ fontSize: '6rem', fontWeight: 'bold', color: 'primary.main', mb: 2 }}>
