@@ -30,7 +30,6 @@ import { useFiles } from "../contexts/FileContext";
 import EmptyState from "../components/common/EmptyState";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import { format } from "date-fns";
-
 import { pt } from "date-fns/locale";
 
 const Trash = () => {
@@ -45,43 +44,59 @@ const Trash = () => {
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [itemToRestore, setItemToRestore] = useState(null); // ADICIONAR ESTE ESTADO
+  const [itemToDelete, setItemToDelete] = useState(null); // ADICIONAR ESTE ESTADO
   const [emptyTrashDialog, setEmptyTrashDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
 
-useEffect(() => {
-  console.log("Carregando lixo...");
-  loadTrash();
-}, []); // ADICIONAR ARRAY VAZIO PARA EVITAR LOOP INFINITO
+  useEffect(() => {
+    console.log("Carregando lixo...");
+    loadTrash();
+  }, []);
 
   const handleMenuOpen = (event, item) => {
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
     setSelectedItem(item);
+    console.log('=== Menu aberto para item do lixo ===', item);
   };
 
   const handleMenuClose = () => {
     setAnchorEl(null);
-    setSelectedItem(null);
+    setSelectedItem(null); // Agora pode resetar sempre
+    console.log('=== Menu do lixo fechado ===');
   };
 
   const handleRestore = () => {
+    console.log('=== handleRestore chamado ===', selectedItem);
+    setItemToRestore(selectedItem); // GUARDAR O ITEM NUMA VARIÁVEL SEPARADA
+    
+    // Executar restauração imediatamente (sem dialog de confirmação)
     if (selectedItem) {
+      console.log('Restaurando item:', selectedItem);
       restoreFromTrash(selectedItem);
     }
+    
     handleMenuClose();
   };
 
   const handleDeletePermanently = () => {
+    console.log('=== handleDeletePermanently chamado ===', selectedItem);
+    setItemToDelete(selectedItem); // GUARDAR O ITEM NUMA VARIÁVEL SEPARADA
     setDeleteDialog(true);
     handleMenuClose();
   };
 
   const confirmDeletePermanently = () => {
-    if (selectedItem) {
-      deletePermanently(selectedItem);
+    console.log('=== confirmDeletePermanently chamado ===', itemToDelete);
+    
+    if (itemToDelete) {
+      console.log('Eliminando permanentemente:', itemToDelete);
+      deletePermanently(itemToDelete);
     }
+    
     setDeleteDialog(false);
-    setSelectedItem(null);
+    setItemToDelete(null);
   };
 
   const handleEmptyTrash = () => {
@@ -97,12 +112,13 @@ useEffect(() => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const getFileIcon = (mimetype) => {
+  const getFileIcon = (mimetype, type) => {
+    if (type === 'folder') return "📁";
     if (mimetype?.startsWith("image/")) return "🖼️";
     if (mimetype?.startsWith("video/")) return "🎥";
     if (mimetype?.startsWith("audio/")) return "🎵";
     if (mimetype === "application/pdf") return "📄";
-    return "📁";
+    return "📄";
   };
 
   const getDaysUntilDeletion = (deletedAt) => {
@@ -195,7 +211,7 @@ useEffect(() => {
                       fontSize: "3rem",
                     }}
                   >
-                    {getFileIcon(item.mimetype)}
+                    {getFileIcon(item.mimetype, item.type)}
                   </Box>
 
                   <IconButton
@@ -249,6 +265,15 @@ useEffect(() => {
                       {formatFileSize(item.size)}
                     </Typography>
                   )}
+
+                  {/* MOSTRAR TIPO DO ITEM */}
+                  <Chip
+                    label={item.type === 'file' ? 'Ficheiro' : 'Pasta'}
+                    size="small"
+                    color={item.type === 'file' ? 'primary' : 'secondary'}
+                    variant="outlined"
+                    sx={{ mt: 1 }}
+                  />
                 </CardContent>
               </Card>
             </Grid>
@@ -275,7 +300,14 @@ useEffect(() => {
       </Menu>
 
       {/* Dialog de Confirmação para Eliminar Permanentemente */}
-      <Dialog open={deleteDialog} onClose={() => setDeleteDialog(false)}   closeAfterTransition={false}>
+      <Dialog 
+        open={deleteDialog} 
+        onClose={() => {
+          setDeleteDialog(false);
+          setItemToDelete(null);
+        }}
+        closeAfterTransition={false}
+      >
         <DialogTitle>
           <Box sx={{ display: "flex", alignItems: "center" }}>
             <Warning sx={{ color: "error.main", mr: 1 }} />
@@ -285,12 +317,17 @@ useEffect(() => {
         <DialogContent>
           <Typography>
             Tens a certeza que queres eliminar permanentemente "
-            {selectedItem?.originalName || selectedItem?.name}"? Esta ação não
+            {itemToDelete?.originalName || itemToDelete?.name}"? Esta ação não
             pode ser desfeita.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialog(false)}>Cancelar</Button>
+          <Button onClick={() => {
+            setDeleteDialog(false);
+            setItemToDelete(null);
+          }}>
+            Cancelar
+          </Button>
           <Button
             onClick={confirmDeletePermanently}
             color="error"
@@ -305,6 +342,7 @@ useEffect(() => {
       <Dialog
         open={emptyTrashDialog}
         onClose={() => setEmptyTrashDialog(false)}
+        closeAfterTransition={false}
       >
         <DialogTitle>
           <Box sx={{ display: "flex", alignItems: "center" }}>
