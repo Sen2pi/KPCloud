@@ -7,11 +7,11 @@
 
 **🏠 Transform your home server into a powerful cloud storage solution**
 
-[🚀 Quick Start](#quick-start)] -
-[📖 Documentation](./Docs)] - 
-[🐛 Report Bug](../../issues)] - 
-[💡 Request Feature](../../issues)] - 
-[💬 Discussions](../../discussions)]
+[🚀 Quick Start](#quick-start) -
+[📖 Documentation](./Docs) - 
+[🐛 Report Bug](../../issues) - 
+[💡 Request Feature](../../issues) - 
+[💬 Discussions](../../discussions)
 
 </div>
 
