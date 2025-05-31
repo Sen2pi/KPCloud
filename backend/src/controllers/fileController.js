@@ -161,6 +161,68 @@ exports.uploadFiles = async (req, res) => {
     });
   }
 };
+// Mover ficheiro para outra pasta
+exports.moveFile = async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const { folderId } = req.body;
+
+    console.log('=== MOVE FILE ===');
+    console.log('File ID:', fileId);
+    console.log('Target Folder ID:', folderId);
+    console.log('User ID:', req.user.userId);
+
+    // Verificar se o ficheiro existe e se o utilizador é o proprietário
+    const file = await File.findOne({
+      _id: fileId,
+      owner: req.user.userId,
+      isDeleted: false
+    });
+
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ficheiro não encontrado'
+      });
+    }
+
+    // Se folderId for null, está a mover para a raiz
+    if (folderId) {
+      // Verificar se a pasta de destino existe e pertence ao utilizador
+      const targetFolder = await Folder.findOne({
+        _id: folderId,
+        owner: req.user.userId,
+        isDeleted: false
+      });
+
+      if (!targetFolder) {
+        return res.status(404).json({
+          success: false,
+          message: 'Pasta de destino não encontrada'
+        });
+      }
+    }
+
+    // Atualizar a pasta do ficheiro
+    file.folder = folderId || null;
+    await file.save();
+
+    console.log('Ficheiro movido com sucesso');
+
+    res.json({
+      success: true,
+      message: 'Ficheiro movido com sucesso',
+      file
+    });
+  } catch (error) {
+    console.error('Erro ao mover ficheiro:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao mover ficheiro',
+      error: error.message
+    });
+  }
+};
 
 exports.getFiles = async (req, res) => {
   try {

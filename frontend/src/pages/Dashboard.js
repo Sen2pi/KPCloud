@@ -87,23 +87,29 @@ const Dashboard = () => {
     }
   };
 
-  const handleCreateFolder = async () => {
-    if (!newFolderName.trim()) return;
+const handleCreateFolder = async () => {
+  if (!newFolderName.trim()) return;
 
-    const result = await createFolder({
-      name: newFolderName.trim(),
-      color: newFolderColor,
-      parent: currentFolder
-    });
+  console.log('=== CREATING FOLDER ===');
+  console.log('Name:', newFolderName);
+  console.log('Color:', newFolderColor);
+  console.log('Parent:', currentFolder);
 
-    if (result.success) {
-      setFolderDialog(false);
-      setNewFolderName('');
-      setNewFolderColor('#3498db');
-      // Recarregar ficheiros da pasta atual
-      loadFiles(currentFolder);
-    }
-  };
+  // CORRIGIR: Enviar dados separados, não como objeto
+  const result = await createFolder(
+    newFolderName.trim(),    // name
+    newFolderColor,          // color  
+    currentFolder           // parent
+  );
+
+  if (result.success) {
+    setFolderDialog(false);
+    setNewFolderName('');
+    setNewFolderColor('#3498db');
+    // Recarregar ficheiros da pasta atual
+    loadFiles(currentFolder);
+  }
+};
 
   const handleUploadComplete = () => {
     setUploadDialog(false);

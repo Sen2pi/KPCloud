@@ -6,7 +6,8 @@ const {
   deleteFile,
   shareFile,
   generatePublicLink,
-  uploadMiddleware // VERIFICAR SE ESTÁ IMPORTADO
+  moveFile,
+  uploadMiddleware,
 } = require('../controllers/fileController');
 const auth = require('../middleware/auth');
 
@@ -19,5 +20,6 @@ router.get('/download/:fileId', auth, downloadFile);
 router.delete('/:fileId', auth, deleteFile);
 router.post('/:fileId/share', auth, shareFile);
 router.post('/:fileId/public-link', auth, generatePublicLink);
+router.put('/:fileId/move', auth, moveFile);
 
 module.exports = router;

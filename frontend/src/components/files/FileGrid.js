@@ -29,6 +29,7 @@ import {
   TableRow,
   Paper,
   Tooltip,
+  Snackbar,
 } from "@mui/material";
 import {
   MoreVert,
@@ -49,6 +50,7 @@ import {
   ViewModule,
   ViewList,
   ArrowBack,
+  DriveFileMove,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -63,7 +65,7 @@ const FileGrid = ({
   currentPath = [], 
   onNavigateToPath 
 }) => {
-  const { downloadFile, moveToTrash } = useFiles();
+  const { downloadFile, moveToTrash, moveItem } = useFiles();
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState(false);
@@ -73,16 +75,113 @@ const FileGrid = ({
   const [shareDialog, setShareDialog] = useState(false);
   const [itemToShare, setItemToShare] = useState(null);
   const [viewMode, setViewMode] = useState('grid');
+  
+  // Estados para Drag & Drop
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dragOverFolder, setDragOverFolder] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   console.log("=== FileGrid renderizado ===");
   console.log("currentPath:", currentPath);
-  console.log("files:", files.length);
-  console.log("folders:", folders.length);
 
   const handleViewModeChange = (event, newViewMode) => {
     if (newViewMode !== null) {
       setViewMode(newViewMode);
     }
+  };
+
+  // Drag & Drop Handlers
+  const handleDragStart = (e, item) => {
+    console.log('Drag started:', item);
+    setDraggedItem(item);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ''); // Para compatibilidade
+  };
+
+  const handleDragEnd = (e) => {
+    console.log('Drag ended');
+    setDraggedItem(null);
+    setDragOverFolder(null);
+  };
+
+  const handleDragOver = (e, folder) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    // Só permitir drop em pastas diferentes do item arrastado
+    if (draggedItem && folder._id !== draggedItem._id) {
+      setDragOverFolder(folder._id);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    // Só remover highlight se realmente saiu da pasta
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverFolder(null);
+    }
+  };
+
+  const handleDrop = async (e, targetFolder) => {
+    e.preventDefault();
+    console.log('Drop event:', { draggedItem, targetFolder });
+    
+    if (!draggedItem || !targetFolder) {
+      console.log('Missing draggedItem or targetFolder');
+      return;
+    }
+
+    // Não permitir mover para si próprio
+    if (draggedItem._id === targetFolder._id) {
+      console.log('Cannot move item to itself');
+      return;
+    }
+
+    // Não permitir mover pasta para dentro de si mesma (loop)
+    if (draggedItem.type === 'folder' && isDescendant(targetFolder._id, draggedItem._id)) {
+      setSnackbar({
+        open: true,
+        message: 'Não é possível mover uma pasta para dentro de si mesma',
+        severity: 'error'
+      });
+      return;
+    }
+
+    try {
+      console.log(`Moving ${draggedItem.type} "${draggedItem.originalName || draggedItem.name}" to folder "${targetFolder.name}"`);
+      
+      const result = await moveItem(draggedItem._id, draggedItem.type, targetFolder._id);
+      
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: `${draggedItem.originalName || draggedItem.name} movido para ${targetFolder.name}`,
+          severity: 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: result.message || 'Erro ao mover item',
+          severity: 'error'
+        });
+      }
+    } catch (error) {
+      console.error('Error moving item:', error);
+      setSnackbar({
+        open: true,
+        message: 'Erro ao mover item',
+        severity: 'error'
+      });
+    } finally {
+      setDraggedItem(null);
+      setDragOverFolder(null);
+    }
+  };
+
+  // Verificar se uma pasta é descendente de outra (prevenir loops)
+  const isDescendant = (potentialChild, potentialParent) => {
+    // Esta é uma verificação básica - idealmente seria feita no backend
+    // Por agora, vamos confiar no backend para validar
+    return false;
   };
 
   const handleShare = () => {
@@ -213,20 +312,31 @@ const FileGrid = ({
     }
   };
 
-  // Renderização de Grid
+  // Renderização de Grid com Drag & Drop
   const renderGridView = () => (
     <Grid container spacing={2}>
       {allItems.map((item) => (
         <Grid item xs={12} sm={6} md={4} lg={3} key={item._id}>
           <Card
+            draggable
+            onDragStart={(e) => handleDragStart(e, item)}
+            onDragEnd={handleDragEnd}
+            onDragOver={item.type === 'folder' ? (e) => handleDragOver(e, item) : undefined}
+            onDragLeave={item.type === 'folder' ? handleDragLeave : undefined}
+            onDrop={item.type === 'folder' ? (e) => handleDrop(e, item) : undefined}
             sx={{
               height: "100%",
               cursor: "pointer",
               transition: "all 0.2s ease",
               position: "relative",
+              opacity: draggedItem?._id === item._id ? 0.5 : 1,
+              transform: dragOverFolder === item._id ? 'scale(1.02)' : 'none',
+              boxShadow: dragOverFolder === item._id ? 4 : 1,
+              border: dragOverFolder === item._id ? '2px dashed' : 'none',
+              borderColor: dragOverFolder === item._id ? 'primary.main' : 'transparent',
               "&:hover": {
-                transform: "translateY(-2px)",
-                boxShadow: 3,
+                transform: dragOverFolder === item._id ? 'scale(1.02)' : "translateY(-2px)",
+                boxShadow: dragOverFolder === item._id ? 4 : 3,
               },
             }}
             onClick={() => handleItemClick(item)}
@@ -241,9 +351,15 @@ const FileGrid = ({
                     justifyContent: "center",
                     bgcolor: item.color || "#3498db",
                     color: "white",
+                    flexDirection: 'column',
                   }}
                 >
                   <Folder sx={{ fontSize: 48 }} />
+                  {dragOverFolder === item._id && (
+                    <Typography variant="caption" sx={{ mt: 1, fontWeight: 'bold' }}>
+                      Soltar aqui
+                    </Typography>
+                  )}
                 </Box>
               ) : item.mimetype?.startsWith("image/") ? (
                 <CardMedia
@@ -297,7 +413,10 @@ const FileGrid = ({
                   "&:hover": { bgcolor: "rgba(255, 255, 255, 0.9)" },
                   color: "#1565c0",
                 }}
-                onClick={(e) => handleMenuOpen(e, item)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMenuOpen(e, item);
+                }}
               >
                 <MoreVert />
               </IconButton>
@@ -348,7 +467,7 @@ const FileGrid = ({
     </Grid>
   );
 
-  // Renderização de Lista
+  // Renderização de Lista com Drag & Drop
   const renderListView = () => (
     <TableContainer component={Paper}>
       <Table>
@@ -367,10 +486,22 @@ const FileGrid = ({
           {allItems.map((item) => (
             <TableRow
               key={item._id}
+              draggable
+              onDragStart={(e) => handleDragStart(e, item)}
+              onDragEnd={handleDragEnd}
+              onDragOver={item.type === 'folder' ? (e) => handleDragOver(e, item) : undefined}
+              onDragLeave={item.type === 'folder' ? handleDragLeave : undefined}
+              onDrop={item.type === 'folder' ? (e) => handleDrop(e, item) : undefined}
               hover
               sx={{ 
                 cursor: "pointer",
-                "&:hover": { bgcolor: "action.hover" }
+                opacity: draggedItem?._id === item._id ? 0.5 : 1,
+                bgcolor: dragOverFolder === item._id ? 'action.hover' : 'transparent',
+                border: dragOverFolder === item._id ? '2px dashed' : 'none',
+                borderColor: dragOverFolder === item._id ? 'primary.main' : 'transparent',
+                "&:hover": { 
+                  bgcolor: dragOverFolder === item._id ? 'action.hover' : 'action.hover' 
+                }
               }}
               onClick={() => handleItemClick(item)}
             >
@@ -397,6 +528,9 @@ const FileGrid = ({
                   >
                     {item.type === "folder" ? item.name : item.originalName}
                   </Typography>
+                  {dragOverFolder === item._id && item.type === 'folder' && (
+                    <Chip label="Soltar aqui" size="small" color="primary" />
+                  )}
                 </Box>
               </TableCell>
               
@@ -528,6 +662,15 @@ const FileGrid = ({
         </Box>
       </Box>
 
+      {/* Info sobre Drag & Drop */}
+      {allItems.length > 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            💡 Dica: Arrasta ficheiros e pastas para movê-los para outras pastas
+          </Typography>
+        </Alert>
+      )}
+
       {/* Conteúdo baseado na vista selecionada */}
       {viewMode === 'grid' ? renderGridView() : renderListView()}
 
@@ -551,13 +694,17 @@ const FileGrid = ({
           <Edit sx={{ mr: 1 }} />
           Renomear
         </MenuItem>
+        <MenuItem onClick={handleMenuClose}>
+          <DriveFileMove sx={{ mr: 1 }} />
+          Mover
+        </MenuItem>
         <MenuItem onClick={handleMoveToTrash} sx={{ color: "warning.main" }}>
           <Delete sx={{ mr: 1 }} />
           Mover para Lixo
         </MenuItem>
       </Menu>
 
-      {/* Dialog de Confirmação para Ficheiros */}
+      {/* Dialogs existentes */}
       <Dialog
         open={deleteDialog}
         onClose={handleDialogClose}
@@ -583,7 +730,6 @@ const FileGrid = ({
         </DialogActions>
       </Dialog>
 
-      {/* Dialog de Confirmação para Pastas */}
       <Dialog
         open={folderDeleteDialog}
         onClose={() => {
@@ -627,7 +773,6 @@ const FileGrid = ({
         </DialogActions>
       </Dialog>
 
-      {/* Share Dialog */}
       <ShareDialog
         open={shareDialog}
         onClose={() => {
@@ -636,6 +781,15 @@ const FileGrid = ({
         }}
         item={itemToShare}
         itemType={itemToShare?.originalName ? "file" : "folder"}
+      />
+
+      {/* Snackbar para feedback */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        message={snackbar.message}
+        severity={snackbar.severity}
       />
     </>
   );

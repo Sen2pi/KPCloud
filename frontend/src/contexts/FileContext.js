@@ -161,25 +161,34 @@ export const FileProvider = ({ children }) => {
     };
   }, []);
 
-  const loadFiles = async (folderId = null) => {
-    try {
-      dispatch({ type: "SET_LOADING", payload: true });
-      const [filesResponse, foldersResponse] = await Promise.all([
-        fileAPI.getFiles({ folderId }),
-        folderAPI.getFolders({ parentId: folderId }),
-      ]);
+const loadFiles = async (folderId = null) => {
+  try {
+    dispatch({ type: "SET_LOADING", payload: true });
+    
+    console.log('=== LOAD FILES ===');
+    console.log('Folder ID:', folderId);
+    
+    const [filesResponse, foldersResponse] = await Promise.all([
+      fileAPI.getFiles({ folderId }),
+      folderAPI.getFolders({ parentId: folderId }) // CORREÇÃO: usar parentId
+    ]);
 
-      dispatch({ type: "SET_FILES", payload: filesResponse.data.files });
-      dispatch({ type: "SET_FOLDERS", payload: foldersResponse.data.folders });
-      dispatch({ type: "SET_CURRENT_FOLDER", payload: folderId });
+    console.log('Files response:', filesResponse.data);
+    console.log('Folders response:', foldersResponse.data);
 
-      socketService.joinFolder(folderId);
-    } catch (error) {
-      toast.error("Erro ao carregar ficheiros");
-    } finally {
-      dispatch({ type: "SET_LOADING", payload: false });
-    }
-  };
+    dispatch({ type: "SET_FILES", payload: filesResponse.data.files || [] });
+    dispatch({ type: "SET_FOLDERS", payload: foldersResponse.data.folders || [] });
+    dispatch({ type: "SET_CURRENT_FOLDER", payload: folderId });
+
+    socketService.joinFolder(folderId);
+  } catch (error) {
+    console.error('Erro ao carregar ficheiros:', error);
+    toast.error("Erro ao carregar ficheiros");
+  } finally {
+    dispatch({ type: "SET_LOADING", payload: false });
+  }
+};
+
 
   const uploadFiles = async (files, folderId = null) => {
     try {
@@ -207,20 +216,43 @@ export const FileProvider = ({ children }) => {
     }
   };
 
-  const createFolder = async (name, parentId = null, color = "#3498db") => {
-    try {
-      const response = await folderAPI.create({ name, parentId, color });
-      if (response.data.success) {
-        dispatch({ type: "ADD_FOLDER", payload: response.data.folder });
-        toast.success("Pasta criada com sucesso!");
-        return { success: true };
-      }
-    } catch (error) {
-      const message = error.response?.data?.message || "Erro ao criar pasta";
-      toast.error(message);
-      return { success: false, message };
+  const createFolder = async (name, color = '#3498db', parent = null) => {
+  try {
+    console.log('=== CREATE FOLDER CONTEXT ===');
+    console.log('Name:', name);
+    console.log('Color:', color);
+    console.log('Parent:', parent);
+
+    // Validar dados antes de enviar
+    if (!name || typeof name !== 'string') {
+      toast.error('Nome da pasta é obrigatório');
+      return { success: false };
     }
-  };
+
+    // Construir objeto de dados correto
+    const folderData = {
+      name: name.trim(),
+      color: color || '#3498db',
+      parent: parent || null
+    };
+
+    console.log('Sending folder data:', folderData);
+
+    const response = await folderAPI.create(folderData);
+
+    if (response.data.success) {
+      toast.success('Pasta criada com sucesso!');
+      return { success: true, folder: response.data.folder };
+    } else {
+      toast.error(response.data.message || 'Erro ao criar pasta');
+      return { success: false };
+    }
+  } catch (error) {
+    console.error('Erro ao criar pasta:', error);
+    toast.error(error.response?.data?.message || 'Erro ao criar pasta');
+    return { success: false };
+  }
+};
 
   const loadTrash = async () => {
     try {
@@ -402,6 +434,36 @@ const downloadFile = async (file) => {
   }
 };
 
+const moveItem = async (itemId, itemType, targetFolderId) => {
+  try {
+    console.log('=== MOVE ITEM ===');
+    console.log('Item ID:', itemId);
+    console.log('Item Type:', itemType);
+    console.log('Target Folder ID:', targetFolderId);
+
+    const response = itemType === 'file' 
+      ? await fileAPI.moveToFolder(itemId, targetFolderId)
+      : await folderAPI.moveToFolder(itemId, targetFolderId);
+
+    if (response.data.success) {
+      toast.success(`${itemType === 'file' ? 'Ficheiro' : 'Pasta'} movido com sucesso!`);
+      
+      // Recarregar ficheiros da pasta atual
+      await loadFiles(state.currentFolder);
+      
+      return { success: true };
+    } else {
+      return { success: false, message: response.data.message };
+    }
+  } catch (error) {
+    console.error('Erro ao mover item:', error);
+    toast.error('Erro ao mover item');
+    return { 
+      success: false, 
+      message: error.response?.data?.message || 'Erro ao mover item' 
+    };
+  }
+};
 
 const shareFile = async (fileId, userEmail, permissions = 'read') => {
   try {
@@ -420,6 +482,7 @@ const shareFile = async (fileId, userEmail, permissions = 'read') => {
     loadFiles,
     uploadFiles,
     createFolder,
+    moveItem,
     loadTrash,
     moveToTrash,
     restoreFromTrash,

@@ -43,7 +43,6 @@ const folderSchema = new mongoose.Schema({
     type: String,
     default: '#3498db'
   },
-  // SOFT DELETE FIELDS
   isDeleted: {
     type: Boolean,
     default: false,
@@ -89,5 +88,6 @@ folderSchema.methods.restore = function() {
 // Índices
 folderSchema.index({ owner: 1, parent: 1 });
 folderSchema.index({ isDeleted: 1, deletedAt: 1 });
+folderSchema.index({ path: 1, owner: 1 });
 
 module.exports = mongoose.model('Folder', folderSchema);

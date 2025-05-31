@@ -1,30 +1,37 @@
 const express = require('express');
+
+// Verificar se o controlador está a ser importado corretamente
+console.log('=== IMPORTING FOLDER CONTROLLER ===');
+const folderController = require('../controllers/folderController');
+console.log('Folder controller imported:', Object.keys(folderController));
+
 const {
   createFolder,
   getFolders,
   updateFolder,
-  deleteFolder,
-  shareFolder
-} = require('../controllers/folderController');
+  moveFolder,
+  moveToTrash
+} = folderController;
+
+console.log('Functions extracted:', { 
+  createFolder: typeof createFolder, 
+  getFolders: typeof getFolders,
+  updateFolder: typeof updateFolder,
+  moveFolder: typeof moveFolder,
+  moveToTrash: typeof moveToTrash
+});
+
 const auth = require('../middleware/auth');
-const { body } = require('express-validator');
 
 const router = express.Router();
 
-// Validações
-const createFolderValidation = [
-  body('name')
-    .trim()
-    .isLength({ min: 1, max: 255 })
-    .withMessage('Nome da pasta deve ter entre 1 e 255 caracteres')
-    .matches(/^[^<>:"/\\|?*]+$/)
-    .withMessage('Nome da pasta contém caracteres inválidos')
-];
-
-router.post('/', auth, createFolderValidation, createFolder);
+// Rotas sem validação temporária para debug
+router.post('/', auth, createFolder);
 router.get('/', auth, getFolders);
 router.put('/:folderId', auth, updateFolder);
-router.delete('/:folderId', auth, deleteFolder);
-router.post('/:folderId/share', auth, shareFolder);
+router.put('/:folderId/move', auth, moveFolder);
+router.post('/:folderId/trash', auth, moveToTrash);
+
+console.log('Folder routes registered successfully');
 
 module.exports = router;

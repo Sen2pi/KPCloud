@@ -97,11 +97,13 @@ export const fileAPI = {
       onUploadProgress: onProgress,
     }),
   getFiles: (params) => api.get("/files", { params }),
+  moveToFolder: (folderId, targetFolderId) => api.put(`/folders/${folderId}/move`, { targetFolderId }),
   download: (fileId) => {
     console.log("API download called with fileId:", fileId);
     return api.get(`/files/download/${fileId}`, {
       responseType: "blob", // IMPORTANTE: Definir como blob
     });
+    
   },
 
   moveToTrash: (fileId) => api.post(`/trash/files/${fileId}`),
@@ -149,16 +151,21 @@ export const forumAPI = {
 };
 
 export const folderAPI = {
-  create: (data) => api.post("/folders", data),
-  getFolders: (params) => api.get("/folders", { params }),
+  create: (data) => {
+    console.log('FolderAPI create called with:', data);
+    return api.post('/folders', data);
+  },
+  getFolders: (params) => {
+    console.log('FolderAPI getFolders called with:', params);
+    // CORREÇÃO: Usar 'parent' em vez de 'parentId'
+    const queryParams = params?.parentId !== undefined ? { parent: params.parentId } : {};
+    return api.get('/folders', { params: queryParams });
+  },
   update: (folderId, data) => api.put(`/folders/${folderId}`, data),
-
+  moveToFolder: (folderId, targetFolderId) => api.put(`/folders/${folderId}/move`, { targetFolderId }),
   moveToTrash: (folderId) => api.post(`/trash/folders/${folderId}`),
-  restoreFromTrash: (folderId) =>
-    api.post(`/trash/folders/${folderId}/restore`),
-  deletePermanently: (folderId) =>
-    api.delete(`/trash/folders/${folderId}/permanent`),
-
+  restoreFromTrash: (folderId) => api.post(`/trash/folders/${folderId}/restore`),
+  deletePermanently: (folderId) => api.delete(`/trash/folders/${folderId}/permanent`),
   share: (folderId, data) => api.post(`/folders/${folderId}/share`, data),
 };
 
