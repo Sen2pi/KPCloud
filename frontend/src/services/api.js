@@ -2,7 +2,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 
 // Função para obter o URL base atual das configurações
-const getAPIBaseURL = () => {
+const getBaseURL = () => {
   // Se estamos em desenvolvimento local
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return 'http://localhost:5000/api';
@@ -18,29 +18,42 @@ const getAPIBaseURL = () => {
   }
   
   // Fallback para IP público conhecido
-  return `http://185.128.9.70:5000/api`;
+  return `http://149.90.127.247:5000/api`;
 };
 
-console.log('🔧 API Base URL:', getAPIBaseURL());
-
-const api = axios.create({
-  baseURL: getAPIBaseURL(),
+// Criar instância do axios sem baseURL fixo
+let api = axios.create({
+  baseURL: getBaseURL(),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('kpcloud_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
 
+// Função para atualizar a instância do axios com novo baseURL
+export const updateApiBaseURL = (newURL) => {
+  api.defaults.baseURL = newURL;
+  // console.log('API Base URL atualizado para:', newURL); // REMOVER OU COMENTAR
+};
+
+// Configurar baseURL inicial
+updateApiBaseURL(getBaseURL());
+
+// Interceptor para adicionar token e garantir baseURL correto
+api.interceptors.request.use((config) => {
+  // Sempre verificar se o baseURL está correto
+  const currentBaseURL = getBaseURL();
+  if (config.baseURL !== currentBaseURL) {
+    config.baseURL = currentBaseURL;
+  }
+
+  const token = localStorage.getItem("kpcloud_token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
 const retryRequest = async (config, retries = 3, delay = 1000) => {
   for (let i = 0; i < retries; i++) {
     try {
@@ -61,15 +74,27 @@ const retryRequest = async (config, retries = 3, delay = 1000) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.code === 'ERR_NETWORK' || error.message.includes('ERR_CONNECTION_REFUSED')) {
-      toast.error('Erro de conexão com o servidor. Verifica se o backend está a correr.');
+    if (error.response?.status === 429) {
+      // Não mostrar toast para 429 se vamos retry
+      const retryAfter = error.response.headers['retry-after'];
+      const delay = retryAfter ? parseInt(retryAfter) * 1000 : 2000;
+      
+      console.log('Rate limit atingido, aguardando...');
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      // Retry da requisição original
+      try {
+        return await retryRequest(error.config, 2, 1000);
+      } catch (retryError) {
+        toast.error("Servidor sobrecarregado. Tenta novamente mais tarde.");
+      }
     } else if (error.response?.status === 401) {
       localStorage.removeItem("kpcloud_token");
       localStorage.removeItem("kpcloud_user");
       window.location.href = "/login";
       toast.error("Sessão expirada. Por favor, faz login novamente.");
     } else if (error.response?.status >= 500) {
-      toast.error("Erro interno do servidor.");
+      toast.error("Erro interno do servidor. Tenta novamente mais tarde.");
     }
 
     return Promise.reject(error);
