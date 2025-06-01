@@ -107,7 +107,7 @@ const SharedFiles = () => {
 
   const getProfilePictureUrl = (profilePicture) => {
     if (profilePicture?.filename) {
-      const baseUrl = process.env.REACT_APP_API_URL || 'http://149.90.127.247:5000';
+      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       const cleanBaseUrl = baseUrl.replace('/api', '');
       return `${cleanBaseUrl}/uploads/profiles/${profilePicture.filename}`;
     }
