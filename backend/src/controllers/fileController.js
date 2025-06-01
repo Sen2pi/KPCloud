@@ -767,7 +767,7 @@ exports.generatePublicLink = async (req, res) => {
 
     res.json({
       success: true,
-      publicLink: `${process.env.FRONTEND_URL}/public/${file.publicLink}`
+      publicLink: `http://149.90.127.247:3000/public/${file.publicLink}`
     });
   } catch (error) {
     res.status(500).json({
