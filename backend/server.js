@@ -167,21 +167,59 @@ app.use('*', (req, res) => {
 const server = require('http').createServer(app);
 const io = require('socket.io')(server, {
   cors: {
-    origin: "*", // Permitir todos os origins
+    origin: function(origin, callback) {
+      // Permitir qualquer origin (incluindo IPs públicos)
+      callback(null, true);
+    },
     methods: ["GET", "POST"],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ["*"]
+  },
+  transports: ['websocket', 'polling'],
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  
+  if (!token) {
+    console.log('❌ Socket sem token de autenticação');
+    return next(new Error('Token de autenticação necessário'));
+  }
+
+  try {
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'kpcloud_secret_key');
+    socket.userId = decoded.userId;
+    console.log('✅ Socket autenticado para utilizador:', decoded.userId);
+    next();
+  } catch (error) {
+    console.log('❌ Token inválido no Socket:', error.message);
+    next(new Error('Token inválido'));
   }
 });
 
 io.on('connection', (socket) => {
-  console.log('Cliente conectado:', socket.id);
+  console.log('🔌 Cliente Socket conectado:', socket.id, 'Utilizador:', socket.userId);
 
   socket.on('join-folder', (folderId) => {
-    socket.join(folderId);
+    const folderRoom = folderId || 'root';
+    socket.join(folderRoom);
+    console.log(`📁 Utilizador ${socket.userId} juntou-se à pasta: ${folderRoom}`);
   });
 
-  socket.on('disconnect', () => {
-    console.log('Cliente desconectado:', socket.id);
+  socket.on('disconnect', (reason) => {
+    console.log('❌ Cliente Socket desconectado:', socket.id, 'Razão:', reason);
+  });
+
+  socket.on('error', (error) => {
+    console.error('❌ Erro no Socket:', error);
+  });
+
+  // Evento de teste
+  socket.on('ping', (data) => {
+    console.log('🏓 Ping recebido:', data);
+    socket.emit('pong', { message: 'Pong!', timestamp: new Date() });
   });
 });
 
