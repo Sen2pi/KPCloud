@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Acesso Público KPCloud</title>
+    <style>
+        body { font-family: Arial; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste de Acesso Público KPCloud</h1>
+    <p>IP Público: <strong>185.128.9.70</strong></p>
+    
+    <button onclick="testBackend()">🔧 Testar Backend</button>
+    <button onclick="testFrontend()">🎨 Testar Frontend</button>
+    <button onclick="testLogin()">🔐 Testar Login</button>
+    
+    <div id="results"></div>
+    
+    <script>
+        const PUBLIC_IP = "185.128.9.70";
+        
+        function addResult(message, isSuccess) {
+            const div = document.createElement('div');
+            div.className = `result ${isSuccess ? 'success' : 'error'}`;
+            div.innerHTML = message;
+            document.getElementById('results').appendChild(div);
+        }
+        
+        async function testBackend() {
+            try {
+                const response = await fetch(`http://${PUBLIC_IP}:5000/api/health`);
+                const data = await response.json();
+                addResult(`✅ Backend OK: ${data.status}`, true);
+            } catch (error) {
+                addResult(`❌ Backend Erro: ${error.message}`, false);
+            }
+        }
+        
+        async function testFrontend() {
+            try {
+                const response = await fetch(`http://${PUBLIC_IP}:5000`);
+                if (response.ok) {
+                    addResult(`✅ Frontend OK: Status ${response.status}`, true);
+                } else {
+                    addResult(`⚠️ Frontend: Status ${response.status}`, false);
+                }
+            } catch (error) {
+                addResult(`❌ Frontend Erro: ${error.message}`, false);
+            }
+        }
+        
+        async function testLogin() {
+            try {
+                const response = await fetch(`http://${PUBLIC_IP}:5000/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'test@test.com', password: 'test123' })
+                });
+                
+                if (response.status === 400) {
+                    addResult(`✅ API Login OK: Endpoint responde (credenciais inválidas esperado)`, true);
+                } else {
+                    addResult(`✅ API Login OK: Status ${response.status}`, true);
+                }
+            } catch (error) {
+                addResult(`❌ API Login Erro: ${error.message}`, false);
+            }
+        }
+    </script>
+</body>
+</html>
