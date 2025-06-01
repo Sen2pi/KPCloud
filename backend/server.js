@@ -114,8 +114,8 @@ const userRoutes = require('./src/routes/users');
 const folderRoutes = require('./src/routes/folders');
 const trashRoutes = require('./src/routes/trash');
 const systemRoutes = require('./src/routes/system');
-const settingsRoutes = require('./src/routes/settings');
-const healthRoutes = require('./src/routes/health');
+const forumRoutes = require('./src/routes/forum');
+const shareRoutes = require('./src/routes/share');
 
 // Rotas da API
 app.use('/api/auth', authRoutes);
@@ -124,8 +124,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/folders', folderRoutes);
 app.use('/api/trash', trashRoutes);
 app.use('/api/system', systemRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/health', healthRoutes);
+app.use('/api/forum', forumRoutes);
+app.use('/api/share', shareRoutes);
 
 // Rota de teste
 app.get('/', (req, res) => {
