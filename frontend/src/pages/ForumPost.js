@@ -72,7 +72,7 @@ const ForumPost = () => {
 
   const getProfilePictureUrl = (profilePicture) => {
     if (profilePicture?.filename) {
-      const baseUrl =  process.env.PUBLIC_URL|| 'http://localhost:5000';;
+      const baseUrl =  'http://149.90.127.247:5000';
       const cleanBaseUrl = baseUrl.replace('/api', '');
       return `${cleanBaseUrl}/uploads/profiles/${profilePicture.filename}`;
     }
