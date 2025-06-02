@@ -81,7 +81,7 @@ const ProfilePictureUpload = ({
 const getProfilePictureUrl = () => {
   if (user?.profilePicture?.filename) {
     // REMOVER /api/ do URL para ficheiros estáticos
-    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+    const baseUrl = process.env.REACT_APP_API_URL || process.env.PUBLIC_URL|| 'http://localhost:5000';;
     const cleanBaseUrl = baseUrl.replace('/api', ''); // Remove /api se existir
     return `${cleanBaseUrl}/uploads/profiles/${user.profilePicture.filename}`;
   }

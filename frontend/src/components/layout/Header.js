@@ -60,7 +60,7 @@ const Header = () => {
   // FUNÇÃO PARA OBTER URL DA FOTO DE PERFIL
   const getProfilePictureUrl = () => {
     if (user?.profilePicture?.filename) {
-      const baseUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
+      const baseUrl = process.env.REACT_APP_API_URL || process.env.PUBLIC_URL|| 'http://localhost:5000';;
       const imageUrl = `${baseUrl}/uploads/profiles/${user.profilePicture.filename}`;
       console.log("URL da foto no Header:", imageUrl);
       return imageUrl;
